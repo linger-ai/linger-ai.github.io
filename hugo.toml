@@ -13,3 +13,6 @@ ShowReadingTime = true
 ShowWordCount = true
 mermaid = true
 
+[services]
+  [services.googleAnalytics]
+    ID = 'G-M0R8M4JVEY'
