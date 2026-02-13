@@ -1,9 +1,32 @@
 {{ if or .Params.mermaid .Site.Params.mermaid }}
 <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+
+    // 1. 检测当前是否为暗色模式
+    // PaperMod 会在 body 标签上添加 class="dark"
+    const isDark = document.body.classList.contains('dark');
+
+    // 2. 初始化 Mermaid
     mermaid.initialize({ 
         startOnLoad: true,
-        theme: 'default' 
+        // 如果是暗色模式，使用 'dark' 主题；否则使用 'neutral' (比默认的更好看)
+        theme: isDark ? 'dark' : 'neutral',
+        securityLevel: 'loose',
+        themeVariables: {
+            fontFamily: 'inherit' // 让图表字体跟随你的网站字体
+        }
     });
+
+    // 3. (可选) 监听主题切换按钮，自动刷新页面
+    // 因为 Mermaid 渲染后无法直接变色，切换主题时刷新页面是解决“黑底黑字”最稳妥的办法
+    const themeToggle = document.querySelector('#theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            // 给一点延迟让 PaperMod 写入 localStorage，然后刷新
+            setTimeout(() => {
+                location.reload();
+            }, 100);
+        });
+    }
 </script>
 {{ end }}
