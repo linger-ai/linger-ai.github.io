@@ -11,3 +11,5 @@ math = true
 defaultTheme = "auto"
 ShowReadingTime = true
 ShowWordCount = true
+mermaid = true
+
