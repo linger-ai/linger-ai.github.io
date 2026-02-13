@@ -1,0 +1,13 @@
+baseURL = 'https://linger-ai.github.io/'
+languageCode = 'en-us'
+title = 'Linger-AI Space'
+theme = 'PaperMod'
+
+[markup.goldmark.renderer]
+unsafe = true
+
+[params]
+math = true
+defaultTheme = "auto"
+ShowReadingTime = true
+ShowWordCount = true
