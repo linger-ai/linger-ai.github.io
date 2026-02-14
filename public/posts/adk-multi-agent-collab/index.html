@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>ADK 多智能体协作的状态管理与冲突解决策略 | Linger-AI Space</title>
+<meta name="keywords" content="AI, 技术">
+<meta name="description" content="一、问题空间
+多智能体协作场景中，状态管理面临以下核心挑战：
+
+  
+      
+          挑战
+          具体问题
+      
+  
+  
+      
+          共享状态并发访问
+          多个 Agent 同时读写 Session Values
+      
+      
+          事件历史的一致性
+          并行 Agent 同时产出事件，如何保序？
+      
+      
+          图内部状态的并发安全
+          ReAct Graph 内 ChatModel 和多个 Tool 并行访问 State
+      
+      
+          嵌套 Agent 的状态隔离
+          agentTool 内部 Agent 不应污染外部的对话历史
+      
+      
+          执行路径的状态归属
+          在多层嵌套中，哪些事件属于哪个 Agent？
+      
+      
+          中断后的状态一致性
+          中断恢复后，各层状态如何保持一致？
+      
+  
+
+ADK 针对这些挑战，不是用一个通用的并发控制方案，而是在架构层面就规避了大部分冲突的可能。下面逐一分析。
+
+二、核心策略：通过架构设计规避冲突
+2.1 策略总览
+
+  flowchart TB
+    subgraph Strategies[&#34;ADK 的六大冲突解决策略&#34;]
+        S1[&#34;① 执行拓扑约束(同一时刻只有一个 Agent 执行)&#34;]
+        S2[&#34;② 分层锁隔离(不同数据用不同的锁)&#34;]
+        S3[&#34;③ Lane 分区写入(并行时各写各的)&#34;]
+        S4[&#34;④ RunPath 归属过滤(只记录自己层级的事件)&#34;]
+        S5[&#34;⑤ Session 隔离边界(agentTool 创建新 Session)&#34;]
+        S6[&#34;⑥ 不可变数据原则(fork 后 Parent 不可变)&#34;]
+    end
+
+    S1 --&gt; T1[&#34;Transfer/Sequential无并发&#34;]
+    S2 --&gt; T2[&#34;Events锁 &#43; Values锁互不阻塞&#34;]
+    S3 --&gt; T3[&#34;Parallel 场景无锁写入&#34;]
+    S4 --&gt; T4[&#34;嵌套 Agent事件不重复记录&#34;]
+    S5 --&gt; T5[&#34;agentTool历史隔离&#34;]
+    S6 --&gt; T6[&#34;Lane Parent链无锁遍历&#34;]
+
+
+三、策略一：执行拓扑约束
+ADK 的多 Agent 执行模型在绝大多数场景下是 严格串行 的：">
+<meta name="author" content="">
+<link rel="canonical" href="http://localhost:1313/posts/adk-multi-agent-collab/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/adk-multi-agent-collab/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/archives" title="归档">
+                    <span>归档</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      ADK 多智能体协作的状态管理与冲突解决策略
+    </h1>
+    <div class="post-meta"><span title='2026-02-13 15:03:33 +0800 CST'>February 13, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1186 words</span>
+
+</div>
+  </header> 
+  <div class="post-content"><h2 id="一问题空间">一、问题空间<a hidden class="anchor" aria-hidden="true" href="#一问题空间">#</a></h2>
+<p>多智能体协作场景中，状态管理面临以下核心挑战：</p>
+<table>
+  <thead>
+      <tr>
+          <th>挑战</th>
+          <th>具体问题</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>共享状态并发访问</strong></td>
+          <td>多个 Agent 同时读写 Session Values</td>
+      </tr>
+      <tr>
+          <td><strong>事件历史的一致性</strong></td>
+          <td>并行 Agent 同时产出事件，如何保序？</td>
+      </tr>
+      <tr>
+          <td><strong>图内部状态的并发安全</strong></td>
+          <td>ReAct Graph 内 ChatModel 和多个 Tool 并行访问 State</td>
+      </tr>
+      <tr>
+          <td><strong>嵌套 Agent 的状态隔离</strong></td>
+          <td>agentTool 内部 Agent 不应污染外部的对话历史</td>
+      </tr>
+      <tr>
+          <td><strong>执行路径的状态归属</strong></td>
+          <td>在多层嵌套中，哪些事件属于哪个 Agent？</td>
+      </tr>
+      <tr>
+          <td><strong>中断后的状态一致性</strong></td>
+          <td>中断恢复后，各层状态如何保持一致？</td>
+      </tr>
+  </tbody>
+</table>
+<p>ADK 针对这些挑战，<strong>不是用一个通用的并发控制方案，而是在架构层面就规避了大部分冲突的可能</strong>。下面逐一分析。</p>
+<hr>
+<h2 id="二核心策略通过架构设计规避冲突">二、核心策略：通过架构设计规避冲突<a hidden class="anchor" aria-hidden="true" href="#二核心策略通过架构设计规避冲突">#</a></h2>
+<h3 id="21-策略总览">2.1 策略总览<a hidden class="anchor" aria-hidden="true" href="#21-策略总览">#</a></h3>
+<div class="mermaid">
+  flowchart TB
+    subgraph Strategies["ADK 的六大冲突解决策略"]
+        S1["① 执行拓扑约束<br/>(同一时刻只有一个 Agent 执行)"]
+        S2["② 分层锁隔离<br/>(不同数据用不同的锁)"]
+        S3["③ Lane 分区写入<br/>(并行时各写各的)"]
+        S4["④ RunPath 归属过滤<br/>(只记录自己层级的事件)"]
+        S5["⑤ Session 隔离边界<br/>(agentTool 创建新 Session)"]
+        S6["⑥ 不可变数据原则<br/>(fork 后 Parent 不可变)"]
+    end
+
+    S1 --> T1["Transfer/Sequential<br/>无并发"]
+    S2 --> T2["Events锁 + Values锁<br/>互不阻塞"]
+    S3 --> T3["Parallel 场景<br/>无锁写入"]
+    S4 --> T4["嵌套 Agent<br/>事件不重复记录"]
+    S5 --> T5["agentTool<br/>历史隔离"]
+    S6 --> T6["Lane Parent链<br/>无锁遍历"]
+</div>
+<hr>
+<h2 id="三策略一执行拓扑约束">三、策略一：执行拓扑约束<a hidden class="anchor" aria-hidden="true" href="#三策略一执行拓扑约束">#</a></h2>
+<p>ADK 的多 Agent 执行模型在绝大多数场景下是 <strong>严格串行</strong> 的：</p>
+<div class="mermaid">
+  flowchart LR
+    subgraph Serial["串行执行模式"]
+        A["Agent A<br/>执行中"] -->|"Transfer"| B["Agent B<br/>执行中"]
+        B -->|"Transfer"| C["Agent C<br/>执行中"]
+    end
+
+    subgraph Sequential["顺序编排模式"]
+        S1["Sub[0]<br/>执行中"] --> S2["Sub[1]<br/>执行中"] --> S3["Sub[2]<br/>执行中"]
+    end
+</div>
+<p>在 Transfer 和 Sequential 模式下：</p>
+<ul>
+<li><strong>同一时刻只有一个 Agent 在执行</strong></li>
+<li>事件的写入是严格顺序的</li>
+<li><strong>不存在并发冲突</strong></li>
+</ul>
+<p>这是最根本的冲突规避策略——通过限制执行拓扑，从源头消除大部分并发场景。</p>
+<p><strong>唯一的并行场景是 Parallel 模式和 ReAct 图内的并行 Tool 调用</strong>，这两个场景有专门的处理策略。</p>
+<hr>
+<h2 id="四策略二分层锁隔离">四、策略二：分层锁隔离<a hidden class="anchor" aria-hidden="true" href="#四策略二分层锁隔离">#</a></h2>
+<p><code>runSession</code> 使用 <strong>两把独立的锁</strong> 保护不同的数据：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">runSession</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Values</span>    <span style="color:#66d9ef">map</span>[<span style="color:#66d9ef">string</span>]<span style="color:#66d9ef">any</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">valuesMtx</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">Mutex</span>     <span style="color:#75715e">// ← 锁1：只保护 Values</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Events</span>     []<span style="color:#f92672">*</span><span style="color:#a6e22e">agentEventWrapper</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">LaneEvents</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">laneEvents</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mtx</span>        <span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">Mutex</span>     <span style="color:#75715e">// ← 锁2：只保护 Events</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><div class="mermaid">
+  flowchart LR
+    subgraph Lock1["valuesMtx (Values 锁)"]
+        V_READ["GetSessionValue()"]
+        V_WRITE["AddSessionValue()"]
+    end
+
+    subgraph Lock2["mtx (Events 锁)"]
+        E_WRITE["addEvent()"]
+        E_READ["getEvents()"]
+    end
+
+    V_READ -.->|"互不阻塞"| E_WRITE
+    V_WRITE -.->|"互不阻塞"| E_READ
+</div>
+<p><strong>设计意图</strong>：Values 和 Events 是完全独立的数据维度。一个 Agent 在写入事件时，不应阻塞另一个 Agent 读取变量。分锁设计将竞争面缩小到最小。</p>
+<h3 id="composegraph-中的-state-锁">compose.Graph 中的 State 锁<a hidden class="anchor" aria-hidden="true" href="#composegraph-中的-state-锁">#</a></h3>
+<p>在 ReAct 图内部，<code>compose.State</code>（如 <code>*State</code>）也有自己的锁：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">internalState</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">state</span>  <span style="color:#66d9ef">any</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mu</span>     <span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">Mutex</span>    <span style="color:#75715e">// ← 每个 State 实例独享一把锁</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">parent</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">internalState</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">ProcessState</span>[<span style="color:#a6e22e">S</span> <span style="color:#66d9ef">any</span>](<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">handler</span>) <span style="color:#66d9ef">error</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">s</span>, <span style="color:#a6e22e">pMu</span>, <span style="color:#a6e22e">_</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">getState</span>[<span style="color:#a6e22e">S</span>](<span style="color:#a6e22e">ctx</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pMu</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">pMu</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">handler</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">s</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>当 ReAct 图中多个 Tool 并行执行时，它们通过 <code>ProcessState</code> 加锁访问共享的 <code>*State</code>（包含 <code>Messages</code>、<code>ToolGenActions</code> 等）。</p>
+<p><strong>锁的层级关系</strong>：</p>
+<pre tabindex="0"><code>compose.State 锁
+  └─ 保护 ReAct 图内的 State（Messages、ToolGenActions 等）
+  └─ 作用域：单个 ChatModelAgent 的 ReAct 循环内
+
+runSession.mtx
+  └─ 保护跨 Agent 的事件历史
+  └─ 作用域：整个多 Agent 协作
+
+runSession.valuesMtx  
+  └─ 保护跨 Agent 的共享变量
+  └─ 作用域：整个多 Agent 协作（甚至跨 agentTool 边界）
+</code></pre><p>三层锁互不干扰，各管各的数据。</p>
+<hr>
+<h2 id="五策略三lane-分区写入parallel-场景">五、策略三：Lane 分区写入（Parallel 场景）<a hidden class="anchor" aria-hidden="true" href="#五策略三lane-分区写入parallel-场景">#</a></h2>
+<p>Parallel 模式是 ADK 中唯一真正并发的编排模式。它的冲突解决策略是 <strong>&ldquo;分区写入 + 延迟合并&rdquo;</strong>：</p>
+<h3 id="51-写入阶段各-lane-独立无锁">5.1 写入阶段：各 Lane 独立，无锁<a hidden class="anchor" aria-hidden="true" href="#51-写入阶段各-lane-独立无锁">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">rs</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">runSession</span>) <span style="color:#a6e22e">addEvent</span>(<span style="color:#a6e22e">event</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">AgentEvent</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">wrapper</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">agentEventWrapper</span>{<span style="color:#a6e22e">AgentEvent</span>: <span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">TS</span>: <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Now</span>().<span style="color:#a6e22e">UnixNano</span>()}
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">LaneEvents</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 在 Lane 中 → 写入本地切片（无锁！）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">LaneEvents</span>.<span style="color:#a6e22e">Events</span> = append(<span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">LaneEvents</span>.<span style="color:#a6e22e">Events</span>, <span style="color:#a6e22e">wrapper</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 主路径 → 加锁写入</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">mtx</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">Events</span> = append(<span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">Events</span>, <span style="color:#a6e22e">wrapper</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">mtx</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>每个并行分支有自己独占的 <code>laneEvents.Events</code> 切片，写入不需要任何锁。</p>
+<h3 id="52-合并阶段排序后原子提交">5.2 合并阶段：排序后原子提交<a hidden class="anchor" aria-hidden="true" href="#52-合并阶段排序后原子提交">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">joinRunCtxs</span>(<span style="color:#a6e22e">parentCtx</span>, <span style="color:#a6e22e">childCtxs</span><span style="color:#f92672">...</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">newEvents</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">unwindLaneEvents</span>(<span style="color:#a6e22e">childCtxs</span><span style="color:#f92672">...</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sort</span>.<span style="color:#a6e22e">Slice</span>(<span style="color:#a6e22e">newEvents</span>, <span style="color:#66d9ef">func</span>(<span style="color:#a6e22e">i</span>, <span style="color:#a6e22e">j</span> <span style="color:#66d9ef">int</span>) <span style="color:#66d9ef">bool</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">newEvents</span>[<span style="color:#a6e22e">i</span>].<span style="color:#a6e22e">TS</span> &lt; <span style="color:#a6e22e">newEvents</span>[<span style="color:#a6e22e">j</span>].<span style="color:#a6e22e">TS</span>   <span style="color:#75715e">// 按纳秒时间戳排序</span>
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">commitEvents</span>(<span style="color:#a6e22e">parentCtx</span>, <span style="color:#a6e22e">newEvents</span>)               <span style="color:#75715e">// 批量追加到父</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>合并发生在所有 goroutine 都已 <code>wg.Wait()</code> 完成之后——此时没有并发，也不需要锁。</p>
+<h3 id="53-读取阶段合并视图有序">5.3 读取阶段：合并视图（有序）<a hidden class="anchor" aria-hidden="true" href="#53-读取阶段合并视图有序">#</a></h3>
+<p>如果并行分支内的 Agent 需要重建输入（Transfer 场景），<code>getEvents()</code> 构建一个包含已提交历史 + 当前 Lane 链的完整视图：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">rs</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">runSession</span>) <span style="color:#a6e22e">getEvents</span>() []<span style="color:#f92672">*</span><span style="color:#a6e22e">agentEventWrapper</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">LaneEvents</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">nil</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">Events</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// committed 历史 + 从叶到根遍历 lane 链</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">finalEvents</span> = copy(<span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">Events</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">lane</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">LaneEvents</span>; <span style="color:#a6e22e">lane</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span>; <span style="color:#a6e22e">lane</span> = <span style="color:#a6e22e">lane</span>.<span style="color:#a6e22e">Parent</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">laneSlices</span> = append(<span style="color:#a6e22e">laneSlices</span>, <span style="color:#a6e22e">lane</span>.<span style="color:#a6e22e">Events</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 按链的层级顺序（不是按时间戳）追加</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> len(<span style="color:#a6e22e">laneSlices</span>) <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span>; <span style="color:#a6e22e">i</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0</span>; <span style="color:#a6e22e">i</span><span style="color:#f92672">--</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">finalEvents</span> = append(<span style="color:#a6e22e">finalEvents</span>, <span style="color:#a6e22e">laneSlices</span>[<span style="color:#a6e22e">i</span>]<span style="color:#f92672">...</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">finalEvents</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><div class="mermaid">
+  flowchart TB
+    subgraph ParallelConflict["Parallel 冲突解决流程"]
+        FORK["Fork:<br/>每个分支获得独立 Lane"]
+        
+        subgraph Write["写入阶段 (并发, 无锁)"]
+            W0["Lane 0: append(e0_1, e0_2)<br/>无锁"]
+            W1["Lane 1: append(e1_1, e1_2)<br/>无锁"]
+        end
+        
+        WAIT["wg.Wait()<br/>等待全部完成<br/>(同步屏障)"]
+        
+        subgraph Merge["合并阶段 (串行, 无锁)"]
+            COLLECT["收集: [e0_1, e0_2, e1_1, e1_2]"]
+            SORT["排序: 按 TS 纳秒时间戳"]
+            COMMIT["提交: 追加到 Parent.Events"]
+        end
+    end
+
+    FORK --> Write --> WAIT --> Merge
+
+    style Write fill:#c8e6c9
+    style Merge fill:#bbdefb
+</div>
+<hr>
+<h2 id="六策略四runpath-归属过滤">六、策略四：RunPath 归属过滤<a hidden class="anchor" aria-hidden="true" href="#六策略四runpath-归属过滤">#</a></h2>
+<p>在多层嵌套执行中，事件会经过多个 <code>flowAgent.run()</code> 的处理。每一层只记录 <strong>直接属于自己的事件</strong>，通过 <code>exactRunPathMatch</code> 判断：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#75715e">// flowAgent.run() 中</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#a6e22e">exactRunPathMatch</span>(<span style="color:#a6e22e">runCtx</span>.<span style="color:#a6e22e">RunPath</span>, <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">RunPath</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 路径精确匹配 → 记录到自己的 Session</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">runCtx</span>.<span style="color:#a6e22e">Session</span>.<span style="color:#a6e22e">addEvent</span>(<span style="color:#a6e22e">copied</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 不匹配 → 只转发，不记录</span>
+</span></span></code></pre></div><p><strong>这避免了重复记录的问题</strong>：</p>
+<pre tabindex="0"><code>Orchestrator (RunPath=[Orch])
+  └─ Planner (RunPath=[Orch, Planner])
+       └─ agentTool: Coder (RunPath=[Orch, Planner, tool:Coder])
+            └─ Coder Agent (RunPath=[Orch, Planner, tool:Coder, Coder])
+
+Coder Agent 产出事件 event.RunPath = [Orch, Planner, tool:Coder, Coder]
+  → Coder 的 flowAgent.run(): 匹配 [Orch, Planner, tool:Coder, Coder] == 自己 ✅ → 记录
+  → Planner 的 flowAgent.run(): 匹配 [Orch, Planner] ≠ [Orch, Planner, tool:Coder, Coder] ❌ → 不记录
+  → Orchestrator 的 flowAgent.run(): 匹配 [Orch] ≠ [Orch, Planner, tool:Coder, Coder] ❌ → 不记录
+</code></pre><p><strong>不需要锁就能防止事件被重复记录到多个 Session</strong>。</p>
+<hr>
+<h2 id="七策略五session-隔离边界">七、策略五：Session 隔离边界<a hidden class="anchor" aria-hidden="true" href="#七策略五session-隔离边界">#</a></h2>
+<p>ADK 通过 <strong>创建新 Session</strong> 在特定边界处实现状态隔离：</p>
+<h3 id="71-agenttool-边界">7.1 agentTool 边界<a hidden class="anchor" aria-hidden="true" href="#71-agenttool-边界">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#75715e">// agent_tool.go 中使用 withSharedParentSession()</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 最终在 ctxWithNewRunCtx 中：</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">session</span> = <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">runSession</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Values</span>:    <span style="color:#a6e22e">parentSession</span>.<span style="color:#a6e22e">Values</span>,     <span style="color:#75715e">// 共享 Values（指针）</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">valuesMtx</span>: <span style="color:#a6e22e">parentSession</span>.<span style="color:#a6e22e">valuesMtx</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Events: nil → 全新的空列表</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><table>
+  <thead>
+      <tr>
+          <th>数据</th>
+          <th>是否共享</th>
+          <th>原因</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>Values</code></td>
+          <td>✅ 共享</td>
+          <td>内部 Agent 需要读写共享变量（如 <code>outputKey</code> 结果）</td>
+      </tr>
+      <tr>
+          <td><code>Events</code></td>
+          <td>❌ 隔离</td>
+          <td>内部 Agent 有自己的对话上下文，不应看到外部历史</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="72-deterministictransfer-边界">7.2 DeterministicTransfer 边界<a hidden class="anchor" aria-hidden="true" href="#72-deterministictransfer-边界">#</a></h3>
+<p><code>AgentWithDeterministicTransferTo</code> 更进一步——为被包装的 flowAgent 创建 <strong>完全隔离的 Session</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">runFlowAgentWithIsolatedSession</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">fa</span>, <span style="color:#a6e22e">input</span>, <span style="color:#a6e22e">toAgentNames</span>, <span style="color:#a6e22e">options</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">isolatedSession</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">runSession</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">Values</span>:    <span style="color:#a6e22e">parentSession</span>.<span style="color:#a6e22e">Values</span>,     <span style="color:#75715e">// 共享 Values</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">valuesMtx</span>: <span style="color:#a6e22e">parentSession</span>.<span style="color:#a6e22e">valuesMtx</span>,
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Events 完全隔离</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 但是！事件仍然要同步到父 Session</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">go</span> <span style="color:#a6e22e">handleFlowAgentEvents</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">iter</span>, <span style="color:#a6e22e">generator</span>, <span style="color:#a6e22e">isolatedSession</span>, <span style="color:#a6e22e">parentSession</span>, <span style="color:#a6e22e">toAgentNames</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">handleFlowAgentEvents</span>(<span style="color:#f92672">...</span>, <span style="color:#a6e22e">isolatedSession</span>, <span style="color:#a6e22e">parentSession</span>, <span style="color:#f92672">...</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">event</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">iter</span>.<span style="color:#a6e22e">Next</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">parentSession</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">非中断事件</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">copied</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">copyAgentEvent</span>(<span style="color:#a6e22e">event</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">parentSession</span>.<span style="color:#a6e22e">addEvent</span>(<span style="color:#a6e22e">copied</span>)   <span style="color:#75715e">// ← 手动同步到父 Session</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">generator</span>.<span style="color:#a6e22e">Send</span>(<span style="color:#a6e22e">event</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>隔离 + 同步</strong>：内部 Agent 在自己的隔离 Session 中执行（不受父 Session 历史的干扰），但产出的事件会被手动复制到父 Session（确保外部能看到完整历史）。</p>
+<div class="mermaid">
+  flowchart TB
+    subgraph Parent["父 Session"]
+        PE["Events: [e1, e2, ...]"]
+        PV["Values: {shared_key: val}"]
+    end
+
+    subgraph Isolated["隔离 Session<br/>(DeterministicTransfer)"]
+        IE["Events: []<br/>(独立历史)"]
+        IV["Values: → 共享 →"]
+    end
+
+    subgraph AgentToolSession["agentTool Session"]
+        AE["Events: []<br/>(独立历史)"]
+        AV["Values: → 共享 →"]
+    end
+
+    IV -.->|"指针共享"| PV
+    AV -.->|"指针共享"| PV
+
+    Isolated -->|"手动 addEvent(copied)"| PE
+    AgentToolSession -->|"不同步事件"| Parent
+
+    style PE fill:#e8f5e9
+    style PV fill:#fff9c4
+</div>
+<hr>
+<h2 id="八策略六不可变数据原则">八、策略六：不可变数据原则<a hidden class="anchor" aria-hidden="true" href="#八策略六不可变数据原则">#</a></h2>
+<p>ADK 在关键数据结构上遵循 <strong>&ldquo;创建后不可变&rdquo;</strong> 原则，从根本上消除并发修改的可能：</p>
+<table>
+  <thead>
+      <tr>
+          <th>数据</th>
+          <th>不可变性</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>laneEvents.Parent</code></td>
+          <td>✅ fork 后不可变</td>
+          <td><code>getEvents()</code> 遍历 Parent 链不需要锁</td>
+      </tr>
+      <tr>
+          <td><code>runContext.deepCopy()</code> 的 RunPath</td>
+          <td>✅ 每次 deepCopy 创建新切片</td>
+          <td>各层 Agent 修改自己的 RunPath 不影响其他层</td>
+      </tr>
+      <tr>
+          <td><code>agentEventWrapper.concatenatedMessage</code></td>
+          <td>✅ 一旦赋值不再变更</td>
+          <td>流消费结果的缓存是 write-once</td>
+      </tr>
+      <tr>
+          <td><code>ChatModelAgent.frozen</code></td>
+          <td>✅ <code>buildRunFunc</code> 后冻结</td>
+          <td>防止运行时修改 Agent 配置</td>
+      </tr>
+      <tr>
+          <td><code>AgentEvent.RunPath</code></td>
+          <td>✅ 设置一次后不再修改</td>
+          <td>由框架设置，用户不可修改（<code>RunStep</code> 字段未导出）</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="九react-图内的并发状态管理">九、ReAct 图内的并发状态管理<a hidden class="anchor" aria-hidden="true" href="#九react-图内的并发状态管理">#</a></h2>
+<p>当 ChatModel 返回多个 ToolCalls 时，ToolsNode 会 <strong>并行执行多个 Tool</strong>。此时多个 Tool goroutine 共享 <code>*State</code>：</p>
+<div class="mermaid">
+  flowchart TB
+    subgraph ReactState["compose.State (有锁保护)"]
+        MSG["Messages: [...]"]
+        TGA["ToolGenActions: map[string]*AgentAction"]
+        RD["HasReturnDirectly: bool"]
+        RI["RemainingIterations: int"]
+    end
+
+    subgraph Tools["并行 Tool 执行"]
+        T1["Tool A (goroutine 1)"]
+        T2["Tool B (goroutine 2)"]
+        T3["transfer_to_agent (goroutine 3)"]
+    end
+
+    T1 -->|"ProcessState → Lock → 写 ToolGenActions['callID_A'] → Unlock"| ReactState
+    T2 -->|"ProcessState → Lock → 写 ToolGenActions['callID_B'] → Unlock"| ReactState
+    T3 -->|"ProcessState → Lock → 写 ToolGenActions['callID_C'] + ReturnDirectly → Unlock"| ReactState
+</div>
+<p><code>ProcessState</code> 保证了每次访问 State 时的原子性：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">ProcessState</span>[<span style="color:#a6e22e">S</span> <span style="color:#66d9ef">any</span>](<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">handler</span>) <span style="color:#66d9ef">error</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">s</span>, <span style="color:#a6e22e">pMu</span>, <span style="color:#a6e22e">_</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">getState</span>[<span style="color:#a6e22e">S</span>](<span style="color:#a6e22e">ctx</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pMu</span>.<span style="color:#a6e22e">Lock</span>()         <span style="color:#75715e">// ← 排他锁</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">pMu</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">handler</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">s</span>)  <span style="color:#75715e">// ← handler 内的所有操作都在锁保护下</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>冲突解决策略</strong>：</p>
+<ul>
+<li>每个 Tool 通过 <code>ToolCallID</code> 作为 key 写入 <code>ToolGenActions</code>，不同 Tool 写不同的 key，不会覆盖</li>
+<li><code>ReturnDirectly</code> 的判断在 <code>toolPreHandle</code> 中（ToolsNode 执行前，串行），不存在并发问题</li>
+<li><code>RemainingIterations</code> 的递减在 <code>modelPreHandle</code> 中（ChatModel 执行前，串行）</li>
+</ul>
+<hr>
+<h2 id="十values-的-last-write-wins-语义">十、Values 的 Last-Write-Wins 语义<a hidden class="anchor" aria-hidden="true" href="#十values-的-last-write-wins-语义">#</a></h2>
+<p>Session Values 采用的是最简单的冲突解决策略——<strong>最后写入者胜出（Last-Write-Wins）</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">func</span> (<span style="color:#a6e22e">rs</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">runSession</span>) <span style="color:#a6e22e">addValue</span>(<span style="color:#a6e22e">key</span> <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">value</span> <span style="color:#66d9ef">any</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">valuesMtx</span>.<span style="color:#a6e22e">Lock</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">Values</span>[<span style="color:#a6e22e">key</span>] = <span style="color:#a6e22e">value</span>   <span style="color:#75715e">// 直接覆盖</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rs</span>.<span style="color:#a6e22e">valuesMtx</span>.<span style="color:#a6e22e">Unlock</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>在 Parallel 场景中，如果两个并行 Agent 同时写入同一个 key：</p>
+<pre tabindex="0"><code>Agent A (goroutine 0): AddSessionValue(ctx, &#34;status&#34;, &#34;from_A&#34;)
+Agent B (goroutine 1): AddSessionValue(ctx, &#34;status&#34;, &#34;from_B&#34;)
+</code></pre><p>最终 <code>Values[&quot;status&quot;]</code> 取决于哪个 goroutine 最后执行了 <code>addValue</code>——这是不确定的。</p>
+<p><strong>ADK 的立场</strong>：<strong>不试图解决 Values 的写冲突</strong>。设计上认为：</p>
+<ol>
+<li>大部分场景是串行执行（Transfer/Sequential），不存在并发写冲突</li>
+<li>Parallel 场景下，不同 Agent 应该写不同的 key（如 <code>agent_a_result</code>、<code>agent_b_result</code>）</li>
+<li>如果确实需要原子更新，用户应该使用 <code>ProcessState</code> 机制或在 Tool 中自己加锁</li>
+</ol>
+<hr>
+<h2 id="十一全局冲突解决策略矩阵">十一、全局冲突解决策略矩阵<a hidden class="anchor" aria-hidden="true" href="#十一全局冲突解决策略矩阵">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>编排模式</th>
+          <th>并发度</th>
+          <th>Events 冲突</th>
+          <th>Values 冲突</th>
+          <th>Graph State 冲突</th>
+          <th>解决策略</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Transfer</strong></td>
+          <td>串行</td>
+          <td>❌ 无</td>
+          <td>❌ 无</td>
+          <td>N/A</td>
+          <td>架构规避</td>
+      </tr>
+      <tr>
+          <td><strong>Sequential</strong></td>
+          <td>串行</td>
+          <td>❌ 无</td>
+          <td>❌ 无</td>
+          <td>N/A</td>
+          <td>架构规避</td>
+      </tr>
+      <tr>
+          <td><strong>Loop</strong></td>
+          <td>串行</td>
+          <td>❌ 无</td>
+          <td>❌ 无</td>
+          <td>N/A</td>
+          <td>架构规避</td>
+      </tr>
+      <tr>
+          <td><strong>Parallel</strong></td>
+          <td>并发</td>
+          <td>✅ Lane 分区</td>
+          <td>⚠️ Last-Write-Wins</td>
+          <td>N/A</td>
+          <td>分区 + 合并</td>
+      </tr>
+      <tr>
+          <td><strong>ReAct 并行 Tool</strong></td>
+          <td>并发</td>
+          <td>N/A</td>
+          <td>N/A</td>
+          <td>✅ ProcessState 锁</td>
+          <td>排他锁 + key 分区</td>
+      </tr>
+      <tr>
+          <td><strong>agentTool 嵌套</strong></td>
+          <td>串行*</td>
+          <td>✅ Session 隔离</td>
+          <td>✅ 共享 + 锁</td>
+          <td>✅ 独立 Graph State</td>
+          <td>边界隔离</td>
+      </tr>
+      <tr>
+          <td><strong>DeterministicTransfer</strong></td>
+          <td>串行*</td>
+          <td>✅ 隔离 + 手动同步</td>
+          <td>✅ 共享 + 锁</td>
+          <td>N/A</td>
+          <td>隔离 + 同步</td>
+      </tr>
+  </tbody>
+</table>
+<p>（*串行：嵌套在外层 Agent 的 Tool 调用中，本身是串行的）</p>
+<hr>
+<h2 id="十二架构级冲突解决总结图">十二、架构级冲突解决总结图<a hidden class="anchor" aria-hidden="true" href="#十二架构级冲突解决总结图">#</a></h2>
+<div class="mermaid">
+  flowchart TB
+    subgraph Architecture["架构级策略 (从源头消除冲突)"]
+        A1["执行拓扑约束<br/>Transfer/Sequential/Loop = 严格串行"]
+        A2["RunPath 归属过滤<br/>每层只记录自己的事件"]
+        A3["Session 隔离边界<br/>agentTool/DeterministicTransfer"]
+        A4["不可变数据<br/>Lane.Parent/RunPath/frozen"]
+    end
+
+    subgraph Concurrency["并发级策略 (处理无法消除的冲突)"]
+        C1["分层锁隔离<br/>Events锁 ⊥ Values锁 ⊥ State锁"]
+        C2["Lane 分区写入<br/>各写各的，合并时排序"]
+        C3["Key 分区<br/>ToolGenActions 按 ToolCallID 分key"]
+        C4["ProcessState 排他锁<br/>Graph State 的原子访问"]
+    end
+
+    subgraph Semantic["语义级策略 (定义冲突的含义)"]
+        S1["Last-Write-Wins<br/>Values 同 key 并发写"]
+        S2["时间戳排序<br/>Parallel 事件合并顺序"]
+        S3["单中断断言<br/>Runner 层最多一个中断"]
+    end
+
+    Architecture -->|"覆盖 90% 场景"| Concurrency
+    Concurrency -->|"剩余边界情况"| Semantic
+
+    style Architecture fill:#e8f5e9
+    style Concurrency fill:#e3f2fd
+    style Semantic fill:#fff3e0
+</div>
+<p><strong>一句话总结</strong>：ADK 的冲突解决哲学是 <strong>&ldquo;用架构消除冲突，而非用锁管理冲突&rdquo;</strong>——通过严格的串行执行拓扑、Session 隔离边界、RunPath 归属过滤和不可变数据原则，将绝大多数并发冲突在设计层面就规避掉了。只有在真正不可避免的并行场景（Parallel 编排、ReAct 并行 Tool 调用），才使用分区写入、分层锁和 Last-Write-Wins 等传统并发控制手段。</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
+      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ 
+        startOnLoad: true,
+        theme: 'default' 
+    });
+</script>
+
+
+<div style="
+    text-align: center;
+    font-size: 12px;
+    color: var(--secondary);
+    margin-top: 10px;
+    opacity: 0.8;">
+
+    
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+    
+    <span id="busuanzi_container_site_pv">
+        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
+    </span>
+    &nbsp;·&nbsp;
+    <span id="busuanzi_container_site_uv">
+        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
+    </span>
+</div>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

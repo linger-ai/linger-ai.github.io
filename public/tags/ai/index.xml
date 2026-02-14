@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>AI on Linger-AI Space</title>
+    <link>http://localhost:1313/tags/ai/</link>
+    <description>Recent content in AI on Linger-AI Space</description>
+    <generator>Hugo -- 0.155.3</generator>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 13 Feb 2026 15:03:33 +0800</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/ai/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>ADK 多智能体协作的状态管理与冲突解决策略</title>
+      <link>http://localhost:1313/posts/adk-multi-agent-collab/</link>
+      <pubDate>Fri, 13 Feb 2026 15:03:33 +0800</pubDate>
+      <guid>http://localhost:1313/posts/adk-multi-agent-collab/</guid>
+      <description>&lt;h2 id=&#34;一问题空间&#34;&gt;一、问题空间&lt;/h2&gt;
+&lt;p&gt;多智能体协作场景中，状态管理面临以下核心挑战：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;挑战&lt;/th&gt;
+          &lt;th&gt;具体问题&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;共享状态并发访问&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;多个 Agent 同时读写 Session Values&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;事件历史的一致性&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;并行 Agent 同时产出事件，如何保序？&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;图内部状态的并发安全&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;ReAct Graph 内 ChatModel 和多个 Tool 并行访问 State&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;嵌套 Agent 的状态隔离&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;agentTool 内部 Agent 不应污染外部的对话历史&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;执行路径的状态归属&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;在多层嵌套中，哪些事件属于哪个 Agent？&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;中断后的状态一致性&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;中断恢复后，各层状态如何保持一致？&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;ADK 针对这些挑战，&lt;strong&gt;不是用一个通用的并发控制方案，而是在架构层面就规避了大部分冲突的可能&lt;/strong&gt;。下面逐一分析。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二核心策略通过架构设计规避冲突&#34;&gt;二、核心策略：通过架构设计规避冲突&lt;/h2&gt;
+&lt;h3 id=&#34;21-策略总览&#34;&gt;2.1 策略总览&lt;/h3&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  flowchart TB
+    subgraph Strategies[&#34;ADK 的六大冲突解决策略&#34;]
+        S1[&#34;① 执行拓扑约束&lt;br/&gt;(同一时刻只有一个 Agent 执行)&#34;]
+        S2[&#34;② 分层锁隔离&lt;br/&gt;(不同数据用不同的锁)&#34;]
+        S3[&#34;③ Lane 分区写入&lt;br/&gt;(并行时各写各的)&#34;]
+        S4[&#34;④ RunPath 归属过滤&lt;br/&gt;(只记录自己层级的事件)&#34;]
+        S5[&#34;⑤ Session 隔离边界&lt;br/&gt;(agentTool 创建新 Session)&#34;]
+        S6[&#34;⑥ 不可变数据原则&lt;br/&gt;(fork 后 Parent 不可变)&#34;]
+    end
+
+    S1 --&gt; T1[&#34;Transfer/Sequential&lt;br/&gt;无并发&#34;]
+    S2 --&gt; T2[&#34;Events锁 + Values锁&lt;br/&gt;互不阻塞&#34;]
+    S3 --&gt; T3[&#34;Parallel 场景&lt;br/&gt;无锁写入&#34;]
+    S4 --&gt; T4[&#34;嵌套 Agent&lt;br/&gt;事件不重复记录&#34;]
+    S5 --&gt; T5[&#34;agentTool&lt;br/&gt;历史隔离&#34;]
+    S6 --&gt; T6[&#34;Lane Parent链&lt;br/&gt;无锁遍历&#34;]
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;三策略一执行拓扑约束&#34;&gt;三、策略一：执行拓扑约束&lt;/h2&gt;
+&lt;p&gt;ADK 的多 Agent 执行模型在绝大多数场景下是 &lt;strong&gt;严格串行&lt;/strong&gt; 的：&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

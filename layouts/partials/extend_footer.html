@@ -8,12 +8,22 @@
 </script>
 {{ end }}
 
-<!-- 不蒜子统计 -->
-<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-<span id="busuanzi_container_site_pv">
-    本站总访问量 <span id="busuanzi_value_site_pv"></span> 次
-</span>
-&nbsp;|&nbsp;
-<span id="busuanzi_container_site_uv">
-    本站访客数 <span id="busuanzi_value_site_uv"></span> 人
-</span>
+<div style="
+    text-align: center;
+    font-size: 12px;
+    color: var(--secondary);
+    margin-top: 10px;
+    opacity: 0.8;">
+
+    <!-- 引入脚本 -->
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+    <!-- 显示容器：用 span 组合，中间加个点分隔 -->
+    <span id="busuanzi_container_site_pv">
+        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
+    </span>
+    &nbsp;·&nbsp;
+    <span id="busuanzi_container_site_uv">
+        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
+    </span>
+</div>

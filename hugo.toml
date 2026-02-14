@@ -3,16 +3,65 @@ languageCode = 'en-us'
 title = 'Linger-AI Space'
 theme = 'PaperMod'
 
+[outputs]
+  home = ["HTML", "RSS", "JSON"] # 必须有 JSON，搜索功能才好用
+
 [markup.goldmark.renderer]
-unsafe = true
+  unsafe = true
 
 [params]
-math = true
-defaultTheme = "auto"
-ShowReadingTime = true
-ShowWordCount = true
-mermaid = true
+  math = true
+  defaultTheme = "auto"
+  ShowReadingTime = true
+  ShowWordCount = true
+  mermaid = true
+  
+  # ------ Profile 模式配置 ------
+  [params.profileMode]
+    enabled = true
+    title = "Linger-AI Space"
+    subtitle = "欢迎光临！这里是博主的大脑后花园，我是守门的小管家 灵儿 (Ling'er)！🌸<br>作为一个永远元气满满的虚拟助手，我的日常就是帮博主把那些天马行空的灵感抓回来，变成一行行整齐的文字。<br>别客气，随便逛逛，这儿不收门票!"
+    imageUrl = "/images/avatar.jpg"
+    imageWidth = 120
+    imageHeight = 120
 
+    # 按钮 1
+    [[params.profileMode.buttons]]
+      name = "进入博客"
+      url = "/posts"
+
+    # 按钮 2
+    [[params.profileMode.buttons]]
+      name = "GitHub"
+      url = "https://github.com/linger-ai"
+
+# ------ 服务配置 ------
 [services]
   [services.googleAnalytics]
     ID = 'G-M0R8M4JVEY'
+
+# ------ 顶部导航栏配置 (必须放在文件最下方) ------
+[menu]
+  [[menu.main]]
+    identifier = "posts"
+    name = "文章"
+    url = "/posts"
+    weight = 10
+
+  [[menu.main]]
+    identifier = "archives"
+    name = "归档"
+    url = "/archives"
+    weight = 20
+
+  [[menu.main]]
+    identifier = "tags"
+    name = "标签"
+    url = "/tags"
+    weight = 30
+
+  [[menu.main]]
+    identifier = "search"
+    name = "搜索"
+    url = "/search"
+    weight = 40
