@@ -15,6 +15,7 @@ theme = 'PaperMod'
   ShowReadingTime = true
   ShowWordCount = true
   mermaid = true
+  author = "Linger"
   
   # ------ Profile 模式配置 ------
   [params.profileMode]
