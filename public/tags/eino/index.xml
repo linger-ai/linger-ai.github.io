@@ -1,33 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
-    <title>Posts on Linger-AI Space</title>
-    <link>http://localhost:1313/posts/</link>
-    <description>Recent content in Posts on Linger-AI Space</description>
+    <title>Eino on Linger-AI Space</title>
+    <link>http://localhost:1313/tags/eino/</link>
+    <description>Recent content in Eino on Linger-AI Space</description>
     <generator>Hugo -- 0.155.3</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 26 Mar 2026 16:00:00 +0800</lastBuildDate>
-    <atom:link href="http://localhost:1313/posts/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Harness Engineering 实践指南：让 AI Agent 可靠地写代码</title>
-      <link>http://localhost:1313/posts/harness-engineering-guide/</link>
-      <pubDate>Thu, 26 Mar 2026 16:00:00 +0800</pubDate>
-      <guid>http://localhost:1313/posts/harness-engineering-guide/</guid>
-      <description>&lt;p&gt;2026 年 2 月，&amp;ldquo;Harness Engineering&amp;quot;这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。&lt;/p&gt;
-&lt;p&gt;这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。&lt;/p&gt;
-&lt;h2 id=&#34;一harness-是什么&#34;&gt;一、Harness 是什么&lt;/h2&gt;
-&lt;p&gt;Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;Harness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;它和 Prompt Engineering、Context Engineering 构成嵌套关系：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;Prompt Engineering&lt;/strong&gt; — 怎么跟模型说话&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Context Engineering&lt;/strong&gt; — 给 Agent 看什么&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Harness Engineering&lt;/strong&gt; — 系统怎么防崩、怎么量化、怎么修&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。&lt;/p&gt;
-&lt;h2 id=&#34;二agent-为什么会翻车&#34;&gt;二、Agent 为什么会翻车&lt;/h2&gt;
-&lt;p&gt;别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：&lt;strong&gt;仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%&lt;/strong&gt;——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。&lt;/p&gt;</description>
-    </item>
+    <lastBuildDate>Mon, 02 Mar 2026 11:12:33 +0800</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/eino/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>深入剖析 Eino adk 实现原理</title>
       <link>http://localhost:1313/posts/eino-technical-deep-dive/</link>
@@ -528,126 +508,6 @@
 &lt;h2 id=&#34;2-整体执行逻辑&#34;&gt;2. 整体执行逻辑&lt;/h2&gt;
 &lt;h3 id=&#34;21-全局执行流程总览&#34;&gt;2.1 全局执行流程总览&lt;/h3&gt;
 &lt;p&gt;Eino ADK 的执行链路可以用一句话概括：&lt;strong&gt;用户调用 → Runner 入口 → flowAgent 编排层 → 具体 Agent 实现层 → ReAct 循环 → 事件流回传&lt;/strong&gt;。整个过程是 &lt;strong&gt;纯异步、流式、事件驱动&lt;/strong&gt; 的架构。&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析</title>
-      <link>http://localhost:1313/posts/linger-technical-deep-dive/</link>
-      <pubDate>Thu, 26 Feb 2026 20:03:33 +0800</pubDate>
-      <guid>http://localhost:1313/posts/linger-technical-deep-dive/</guid>
-      <description>&lt;h1 id=&#34;linger基于-langgraph-的-ai-科技日报生成系统技术解析&#34;&gt;Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析&lt;/h1&gt;
-&lt;h2 id=&#34;引言&#34;&gt;引言&lt;/h2&gt;
-&lt;p&gt;在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。&lt;/p&gt;
-&lt;p&gt;本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。&lt;/p&gt;
-&lt;h2 id=&#34;系统架构概览&#34;&gt;系统架构概览&lt;/h2&gt;
-&lt;p&gt;Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：&lt;/p&gt;
-&lt;div class=&#34;mermaid&#34;&gt;
-  graph TB
-    subgraph &#34;数据采集层&#34;
-        RSS[RSS Collector]
-        WEB[Web Scraper]
-        JINA[Jina Reader]
-    end
-
-    subgraph &#34;LangGraph Workflow&#34;
-        COLLECT[Collect Node]
-        SUMMARIZE[Summarize Node]
-        ILLUSTRATE[Illustrate Node]
-        PUBLISH[Publish Node]
-    end
-
-    subgraph &#34;AI 服务层&#34;
-        LLM[Doubao LLM]
-        IMG[Seedream 图像生成]
-    end
-
-    subgraph &#34;输出层&#34;
-        GH[GitHub Pages]
-        PICBED[图床服务]
-    end
-
-    RSS --&gt; COLLECT
-    WEB --&gt; COLLECT
-    JINA --&gt; WEB
-
-    COLLECT --&gt; SUMMARIZE
-    SUMMARIZE --&gt; LLM
-    LLM --&gt; SUMMARIZE
-    SUMMARIZE --&gt; ILLUSTRATE
-    ILLUSTRATE --&gt; IMG
-    IMG --&gt; PICBED
-    ILLUSTRATE --&gt; PUBLISH
-    PUBLISH --&gt; GH
-&lt;/div&gt;
-&lt;h2 id=&#34;核心模块详解&#34;&gt;核心模块详解&lt;/h2&gt;
-&lt;h3 id=&#34;1-langgraph-工作流设计&#34;&gt;1. LangGraph 工作流设计&lt;/h3&gt;
-&lt;p&gt;LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>ADK 多智能体协作的状态管理与冲突解决策略</title>
-      <link>http://localhost:1313/posts/adk-multi-agent-collab/</link>
-      <pubDate>Fri, 13 Feb 2026 15:03:33 +0800</pubDate>
-      <guid>http://localhost:1313/posts/adk-multi-agent-collab/</guid>
-      <description>&lt;h2 id=&#34;一问题空间&#34;&gt;一、问题空间&lt;/h2&gt;
-&lt;p&gt;多智能体协作场景中，状态管理面临以下核心挑战：&lt;/p&gt;
-&lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;挑战&lt;/th&gt;
-          &lt;th&gt;具体问题&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;共享状态并发访问&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;多个 Agent 同时读写 Session Values&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;事件历史的一致性&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;并行 Agent 同时产出事件，如何保序？&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;图内部状态的并发安全&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;ReAct Graph 内 ChatModel 和多个 Tool 并行访问 State&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;嵌套 Agent 的状态隔离&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;agentTool 内部 Agent 不应污染外部的对话历史&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;执行路径的状态归属&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;在多层嵌套中，哪些事件属于哪个 Agent？&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;中断后的状态一致性&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;中断恢复后，各层状态如何保持一致？&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
-&lt;/table&gt;
-&lt;p&gt;ADK 针对这些挑战，&lt;strong&gt;不是用一个通用的并发控制方案，而是在架构层面就规避了大部分冲突的可能&lt;/strong&gt;。下面逐一分析。&lt;/p&gt;
-&lt;hr&gt;
-&lt;h2 id=&#34;二核心策略通过架构设计规避冲突&#34;&gt;二、核心策略：通过架构设计规避冲突&lt;/h2&gt;
-&lt;h3 id=&#34;21-策略总览&#34;&gt;2.1 策略总览&lt;/h3&gt;
-&lt;div class=&#34;mermaid&#34;&gt;
-  flowchart TB
-    subgraph Strategies[&#34;ADK 的六大冲突解决策略&#34;]
-        S1[&#34;① 执行拓扑约束&lt;br/&gt;(同一时刻只有一个 Agent 执行)&#34;]
-        S2[&#34;② 分层锁隔离&lt;br/&gt;(不同数据用不同的锁)&#34;]
-        S3[&#34;③ Lane 分区写入&lt;br/&gt;(并行时各写各的)&#34;]
-        S4[&#34;④ RunPath 归属过滤&lt;br/&gt;(只记录自己层级的事件)&#34;]
-        S5[&#34;⑤ Session 隔离边界&lt;br/&gt;(agentTool 创建新 Session)&#34;]
-        S6[&#34;⑥ 不可变数据原则&lt;br/&gt;(fork 后 Parent 不可变)&#34;]
-    end
-
-    S1 --&gt; T1[&#34;Transfer/Sequential&lt;br/&gt;无并发&#34;]
-    S2 --&gt; T2[&#34;Events锁 + Values锁&lt;br/&gt;互不阻塞&#34;]
-    S3 --&gt; T3[&#34;Parallel 场景&lt;br/&gt;无锁写入&#34;]
-    S4 --&gt; T4[&#34;嵌套 Agent&lt;br/&gt;事件不重复记录&#34;]
-    S5 --&gt; T5[&#34;agentTool&lt;br/&gt;历史隔离&#34;]
-    S6 --&gt; T6[&#34;Lane Parent链&lt;br/&gt;无锁遍历&#34;]
-&lt;/div&gt;
-&lt;hr&gt;
-&lt;h2 id=&#34;三策略一执行拓扑约束&#34;&gt;三、策略一：执行拓扑约束&lt;/h2&gt;
-&lt;p&gt;ADK 的多 Agent 执行模型在绝大多数场景下是 &lt;strong&gt;严格串行&lt;/strong&gt; 的：&lt;/p&gt;</description>
     </item>
   </channel>
 </rss>

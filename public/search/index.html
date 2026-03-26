@@ -8,7 +8,7 @@
 <title>Search | Linger-AI Space</title>
 <meta name="keywords" content="">
 <meta name="description" content="search">
-<meta name="author" content="">
+<meta name="author" content="Linger">
 <link rel="canonical" href="http://localhost:1313/search/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style"><link crossorigin="anonymous" rel="preload" as="fetch" href="../index.json">
 <script defer crossorigin="anonymous" src="/assets/js/search.ed0e4d7bdc3dfc6d21cd3524107d605ca925c94f89b81ce243d98cd10e60fd1f.js" integrity="sha256-7Q5Ne9w9/G0hzTUkEH1gXKklyU&#43;JuBziQ9mM0Q5g/R8="></script>
@@ -186,6 +186,22 @@
         访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
     </span>
 </div>
+
+
+<script>
+(function() {
+    var el = document.getElementById('busuanzi_container_page_pv');
+    if (!el) return;
+    var check = setInterval(function() {
+        var val = document.getElementById('busuanzi_value_page_pv');
+        if (val && val.innerText !== '') {
+            el.style.display = 'inline';
+            clearInterval(check);
+        }
+    }, 200);
+    setTimeout(function() { clearInterval(check); }, 10000);
+})();
+</script>
 
 
 <script>

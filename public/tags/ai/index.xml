@@ -6,8 +6,582 @@
     <description>Recent content in AI on Linger-AI Space</description>
     <generator>Hugo -- 0.155.3</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 13 Feb 2026 15:03:33 +0800</lastBuildDate>
+    <lastBuildDate>Thu, 26 Mar 2026 16:00:00 +0800</lastBuildDate>
     <atom:link href="http://localhost:1313/tags/ai/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Harness Engineering 实践指南：让 AI Agent 可靠地写代码</title>
+      <link>http://localhost:1313/posts/harness-engineering-guide/</link>
+      <pubDate>Thu, 26 Mar 2026 16:00:00 +0800</pubDate>
+      <guid>http://localhost:1313/posts/harness-engineering-guide/</guid>
+      <description>&lt;p&gt;2026 年 2 月，&amp;ldquo;Harness Engineering&amp;quot;这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。&lt;/p&gt;
+&lt;p&gt;这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。&lt;/p&gt;
+&lt;h2 id=&#34;一harness-是什么&#34;&gt;一、Harness 是什么&lt;/h2&gt;
+&lt;p&gt;Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Harness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;它和 Prompt Engineering、Context Engineering 构成嵌套关系：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Prompt Engineering&lt;/strong&gt; — 怎么跟模型说话&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Context Engineering&lt;/strong&gt; — 给 Agent 看什么&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Harness Engineering&lt;/strong&gt; — 系统怎么防崩、怎么量化、怎么修&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。&lt;/p&gt;
+&lt;h2 id=&#34;二agent-为什么会翻车&#34;&gt;二、Agent 为什么会翻车&lt;/h2&gt;
+&lt;p&gt;别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：&lt;strong&gt;仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%&lt;/strong&gt;——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>深入剖析 Eino adk 实现原理</title>
+      <link>http://localhost:1313/posts/eino-technical-deep-dive/</link>
+      <pubDate>Mon, 02 Mar 2026 11:12:33 +0800</pubDate>
+      <guid>http://localhost:1313/posts/eino-technical-deep-dive/</guid>
+      <description>&lt;h2 id=&#34;1-核心数据结构&#34;&gt;1. 核心数据结构&lt;/h2&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;层次&lt;/th&gt;
+          &lt;th&gt;核心结构&lt;/th&gt;
+          &lt;th&gt;职责&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;接口层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;Agent&lt;/code&gt;, &lt;code&gt;ResumableAgent&lt;/code&gt;, &lt;code&gt;OnSubAgents&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;定义 Agent 契约&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;实现层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;ChatModelAgent&lt;/code&gt;, &lt;code&gt;workflowAgent&lt;/code&gt;, &lt;code&gt;flowAgent&lt;/code&gt;, &lt;code&gt;agentTool&lt;/code&gt;, &lt;code&gt;deterministicTransferTo&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;具体 Agent 实现&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;事件层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;AgentEvent&lt;/code&gt; → &lt;code&gt;AgentOutput&lt;/code&gt; → &lt;code&gt;MessageVariant&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Agent 执行产物&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;动作层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;AgentAction&lt;/code&gt; → &lt;code&gt;TransferToAgent&lt;/code&gt; / &lt;code&gt;Interrupt&lt;/code&gt; / &lt;code&gt;BreakLoop&lt;/code&gt; / &lt;code&gt;Exit&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;控制流指令&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;状态层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;State&lt;/code&gt;, &lt;code&gt;ChatModelAgentState&lt;/code&gt;, &lt;code&gt;sequentialWorkflowState&lt;/code&gt; 等&lt;/td&gt;
+          &lt;td&gt;ReAct/工作流运行时状态&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;上下文层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;Runner&lt;/code&gt; → &lt;code&gt;runContext&lt;/code&gt; → &lt;code&gt;runSession&lt;/code&gt; → &lt;code&gt;agentEventWrapper&lt;/code&gt; / &lt;code&gt;laneEvents&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;执行上下文与会话管理&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;中断层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;InterruptInfo&lt;/code&gt;, &lt;code&gt;ResumeInfo&lt;/code&gt;, &lt;code&gt;serialization&lt;/code&gt;, &lt;code&gt;bridgeStore&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;中断持久化与恢复&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;通信层&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;AsyncIterator&lt;/code&gt; / &lt;code&gt;AsyncGenerator&lt;/code&gt; → &lt;code&gt;UnboundedChan&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;异步事件流&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;11-agent-接口与实现类层次图&#34;&gt;1.1 Agent 接口与实现类层次图&lt;/h3&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  classDiagram
+    class Agent {
+        &lt;&lt;interface&gt;&gt;
+        +Name(ctx) string
+        +Description(ctx) string
+        +Run(ctx, input, opts) AsyncIterator~AgentEvent~
+    }
+
+    class ResumableAgent {
+        &lt;&lt;interface&gt;&gt;
+        +Resume(ctx, info, opts) AsyncIterator~AgentEvent~
+    }
+
+    class OnSubAgents {
+        &lt;&lt;interface&gt;&gt;
+        +OnSetSubAgents(ctx, subAgents) error
+        +OnSetAsSubAgent(ctx, parent) error
+        +OnDisallowTransferToParent(ctx) error
+    }
+
+    Agent &lt;|-- ResumableAgent
+
+    class ChatModelAgent {
+        -name string
+        -description string
+        -instruction string
+        -model ToolCallingChatModel
+        -toolsConfig ToolsConfig
+        -genModelInput GenModelInput
+        -exit BaseTool
+        -outputKey string
+        -maxIterations int
+        -subAgents []Agent
+        -parentAgent Agent
+        -beforeChatModels []func
+        -afterChatModels []func
+        -modelRetryConfig *ModelRetryConfig
+        -run runFunc
+        -frozen uint32
+    }
+
+    class flowAgent {
+        +Agent (embedded)
+        -subAgents []*flowAgent
+        -parentAgent *flowAgent
+        -disallowTransferToParent bool
+        -historyRewriter HistoryRewriter
+        -checkPointStore CheckPointStore
+    }
+
+    class workflowAgent {
+        -name string
+        -description string
+        -subAgents []*flowAgent
+        -mode workflowAgentMode
+        -maxIterations int
+    }
+
+    class agentWithDeterministicTransferTo {
+        -agent Agent
+        -toAgentNames []string
+    }
+
+    class agentTool {
+        -agent Agent
+        -fullChatHistoryAsInput bool
+        -inputSchema *ParamsOneOf
+        +Info(ctx) ToolInfo
+        +InvokableRun(ctx, args, opts) string
+    }
+
+    Agent &lt;|.. ChatModelAgent
+    OnSubAgents &lt;|.. ChatModelAgent
+    Agent &lt;|.. flowAgent
+    ResumableAgent &lt;|.. flowAgent
+    Agent &lt;|.. workflowAgent
+    ResumableAgent &lt;|.. workflowAgent
+    Agent &lt;|.. agentWithDeterministicTransferTo
+
+    flowAgent o-- Agent : wraps
+    flowAgent o-- &#34;*&#34; flowAgent : subAgents
+    flowAgent o-- &#34;0..1&#34; flowAgent : parentAgent
+    workflowAgent o-- &#34;*&#34; flowAgent : subAgents
+    agentWithDeterministicTransferTo o-- Agent : wraps
+    agentTool o-- Agent : wraps
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;12-agentevent-事件体系图&#34;&gt;1.2 AgentEvent 事件体系图&lt;/h3&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  classDiagram
+    class AgentEvent {
+        +AgentName string
+        +RunPath []RunStep
+        +Output *AgentOutput
+        +Action *AgentAction
+        +Err error
+    }
+
+    class RunStep {
+        -agentName string
+        +String() string
+        +Equals(r1) bool
+    }
+
+    class AgentOutput {
+        +MessageOutput *MessageVariant
+        +CustomizedOutput any
+    }
+
+    class MessageVariant {
+        +IsStreaming bool
+        +Message Message
+        +MessageStream MessageStream
+        +Role RoleType
+        +ToolName string
+        +GetMessage() Message
+    }
+
+    class AgentAction {
+        +Exit bool
+        +Interrupted *InterruptInfo
+        +TransferToAgent *TransferToAgentAction
+        +BreakLoop *BreakLoopAction
+        +CustomizedAction any
+        -internalInterrupted *InterruptSignal
+    }
+
+    class TransferToAgentAction {
+        +DestAgentName string
+    }
+
+    class BreakLoopAction {
+        +From string
+        +Done bool
+        +CurrentIterations int
+    }
+
+    class InterruptInfo {
+        +Data any
+        +InterruptContexts []*InterruptCtx
+    }
+
+    class AgentInput {
+        +Messages []Message
+        +EnableStreaming bool
+    }
+
+    AgentEvent *-- &#34;0..1&#34; AgentOutput
+    AgentEvent *-- &#34;0..1&#34; AgentAction
+    AgentEvent *-- &#34;*&#34; RunStep : RunPath
+
+    AgentOutput *-- &#34;0..1&#34; MessageVariant
+
+    AgentAction *-- &#34;0..1&#34; InterruptInfo
+    AgentAction *-- &#34;0..1&#34; TransferToAgentAction
+    AgentAction *-- &#34;0..1&#34; BreakLoopAction
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;13-运行时上下文与会话状态图&#34;&gt;1.3 运行时上下文与会话状态图&lt;/h3&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  classDiagram
+    class Runner {
+        -a Agent
+        -enableStreaming bool
+        -store CheckPointStore
+        +Run(ctx, messages, opts) AsyncIterator
+        +Resume(ctx, checkPointID, opts) AsyncIterator
+        +ResumeWithParams(ctx, id, params, opts) AsyncIterator
+    }
+
+    class runContext {
+        +RootInput *AgentInput
+        +RunPath []RunStep
+        +Session *runSession
+    }
+
+    class runSession {
+        +Values map~string,any~
+        -valuesMtx *Mutex
+        +Events []*agentEventWrapper
+        +LaneEvents *laneEvents
+        -mtx Mutex
+        +addEvent(event)
+        +getEvents() []*agentEventWrapper
+        +addValue(key, value)
+        +getValues() map
+    }
+
+    class laneEvents {
+        +Events []*agentEventWrapper
+        +Parent *laneEvents
+    }
+
+    class agentEventWrapper {
+        +*AgentEvent (embedded)
+        -mu Mutex
+        -concatenatedMessage Message
+        +TS int64
+        +StreamErr error
+    }
+
+    class HistoryEntry {
+        +IsUserInput bool
+        +AgentName string
+        +Message Message
+    }
+
+    Runner --&gt; runContext : creates via context
+    runContext *-- &#34;1&#34; runSession : Session
+    runContext *-- &#34;*&#34; RunStep : RunPath
+    runContext *-- &#34;1&#34; AgentInput : RootInput
+
+    runSession *-- &#34;*&#34; agentEventWrapper : Events
+    runSession *-- &#34;0..1&#34; laneEvents : LaneEvents(parallel)
+
+    laneEvents *-- &#34;*&#34; agentEventWrapper : Events
+    laneEvents o-- &#34;0..1&#34; laneEvents : Parent (linked list)
+
+    agentEventWrapper *-- &#34;1&#34; AgentEvent
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;14-react-循环与-chatmodelagent-内部状态图&#34;&gt;1.4 ReAct 循环与 ChatModelAgent 内部状态图&lt;/h3&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  classDiagram
+    class ChatModelAgent {
+        -name string
+        -model ToolCallingChatModel
+        -toolsConfig ToolsConfig
+        +Run(ctx, input, opts) AsyncIterator
+        +Resume(ctx, info, opts) AsyncIterator
+        -buildRunFunc(ctx) runFunc
+    }
+
+    class reactConfig {
+        -model ToolCallingChatModel
+        -toolsConfig *ToolsNodeConfig
+        -toolsReturnDirectly map~string,bool~
+        -agentName string
+        -maxIterations int
+        -beforeChatModel []func
+        -afterChatModel []func
+        -modelRetryConfig *ModelRetryConfig
+    }
+
+    class State {
+        +Messages []Message
+        +HasReturnDirectly bool
+        +ReturnDirectlyToolCallID string
+        +ToolGenActions map~string,AgentAction~
+        +AgentName string
+        +RemainingIterations int
+    }
+
+    class ChatModelAgentState {
+        +Messages []Message
+    }
+
+    class ToolsConfig {
+        +ToolsNodeConfig (embedded)
+        +ReturnDirectly map~string,bool~
+        +EmitInternalEvents bool
+    }
+
+    class AgentMiddleware {
+        +AdditionalInstruction string
+        +AdditionalTools []BaseTool
+        +BeforeChatModel func
+        +AfterChatModel func
+        +WrapToolCall ToolMiddleware
+    }
+
+    class cbHandler {
+        +*AsyncGenerator (embedded)
+        -agentName string
+        -enableStreaming bool
+        -store *bridgeStore
+        -returnDirectlyToolEvent atomic.Value
+        -ctx context.Context
+        -addr Address
+        -modelRetryConfigs *ModelRetryConfig
+    }
+
+    ChatModelAgent --&gt; reactConfig : creates
+    ChatModelAgent --&gt; ToolsConfig : uses
+    ChatModelAgent --&gt; AgentMiddleware : configures
+    reactConfig --&gt; State : genState()
+    ChatModelAgent --&gt; cbHandler : creates for callbacks
+    cbHandler --&gt; AgentEvent : sends events
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;15-中断与恢复interruptresume流程图&#34;&gt;1.5 中断与恢复（Interrupt/Resume）流程图&lt;/h3&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  classDiagram
+    class InterruptInfo {
+        +Data any
+        +InterruptContexts []*InterruptCtx
+    }
+
+    class ResumeInfo {
+        +EnableStreaming bool
+        +*InterruptInfo (embedded)
+        +WasInterrupted bool
+        +InterruptState any
+        +IsResumeTarget bool
+        +ResumeData any
+    }
+
+    class serialization {
+        +RunCtx *runContext
+        +Info *InterruptInfo
+        +EnableStreaming bool
+        +InterruptID2Address map~string,Address~
+        +InterruptID2State map~string,InterruptState~
+    }
+
+    class bridgeStore {
+        +Data []byte
+        +Valid bool
+        +Get(ctx, key) ([]byte, bool, error)
+        +Set(ctx, key, data) error
+    }
+
+    class WorkflowInterruptInfo {
+        +OrigInput *AgentInput
+        +SequentialInterruptIndex int
+        +SequentialInterruptInfo *InterruptInfo
+        +LoopIterations int
+        +ParallelInterruptInfo map~int,InterruptInfo~
+    }
+
+    class sequentialWorkflowState {
+        +InterruptIndex int
+    }
+
+    class parallelWorkflowState {
+        +SubAgentEvents map~int,agentEventWrapper[]~
+    }
+
+    class loopWorkflowState {
+        +LoopIterations int
+        +SubAgentIndex int
+    }
+
+    class ChatModelAgentInterruptInfo {
+        +Info *InterruptInfo
+        +Data []byte
+    }
+
+    class ResumeParams {
+        +Targets map~string,any~
+    }
+
+    ResumeInfo *-- &#34;1&#34; InterruptInfo
+    serialization *-- &#34;1&#34; runContext
+    serialization *-- &#34;0..1&#34; InterruptInfo
+
+    WorkflowInterruptInfo *-- &#34;0..1&#34; InterruptInfo : SequentialInterruptInfo
+    WorkflowInterruptInfo *-- &#34;*&#34; InterruptInfo : ParallelInterruptInfo
+
+    ChatModelAgentInterruptInfo *-- &#34;1&#34; InterruptInfo
+
+    Runner --&gt; serialization : save/load checkpoint
+    Runner --&gt; bridgeStore : internal state bridge
+    Runner --&gt; ResumeParams : resume with targets
+&lt;/div&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;16-异步通信与事件流转全景图&#34;&gt;1.6 异步通信与事件流转全景图&lt;/h3&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  flowchart TB
+    subgraph User[&#34;用户层&#34;]
+        RunnerRun[&#34;Runner.Run() / Runner.Resume()&#34;]
+    end
+
+    subgraph FlowLayer[&#34;编排层 (flowAgent)&#34;]
+        FA[&#34;flowAgent.run()&#34;]
+        FA --&gt;|&#34;Transfer&#34;| SubFA[&#34;subAgent.Run()&#34;]
+        SubFA --&gt;|events| FA
+    end
+
+    subgraph AgentImpl[&#34;Agent 实现层&#34;]
+        CMA[&#34;ChatModelAgent&#34;]
+        WA[&#34;workflowAgent&#34;]
+        DT[&#34;deterministicTransferTo&#34;]
+    end
+
+    subgraph ReactLoop[&#34;ReAct 循环 (compose.Graph)&#34;]
+        CM[&#34;ChatModel Node&#34;]
+        TN[&#34;ToolsNode&#34;]
+        CM --&gt;|&#34;has tool_calls?&#34;| TN
+        TN --&gt;|&#34;return_directly?&#34;| END1[&#34;END&#34;]
+        TN --&gt;|&#34;continue&#34;| CM
+        CM --&gt;|&#34;no tool_calls&#34;| END2[&#34;END&#34;]
+    end
+
+    subgraph ToolLayer[&#34;工具层&#34;]
+        T1[&#34;普通 Tool&#34;]
+        AT[&#34;agentTool (嵌套 Agent)&#34;]
+        AT --&gt; NestedAgent[&#34;内部 Agent.Run()&#34;]
+    end
+
+    subgraph AsyncComm[&#34;异步通信&#34;]
+        GEN[&#34;AsyncGenerator&#34;]
+        ITER[&#34;AsyncIterator&#34;]
+        GEN --&gt;|&#34;Send(event)&#34;| CH[&#34;UnboundedChan&#34;]
+        CH --&gt;|&#34;Next()&#34;| ITER
+    end
+
+    subgraph SessionState[&#34;会话状态&#34;]
+        RS[&#34;runSession&#34;]
+        EV[&#34;Events[]&#34;]
+        VAL[&#34;Values map&#34;]
+        LE[&#34;laneEvents (parallel)&#34;]
+        RS --- EV
+        RS --- VAL
+        RS --- LE
+    end
+
+    RunnerRun --&gt; FA
+    FA --&gt; CMA
+    FA --&gt; WA
+    FA --&gt; DT
+    CMA --&gt; ReactLoop
+    TN --&gt; T1
+    TN --&gt; AT
+    CMA -.-&gt;|&#34;callbacks&#34;| GEN
+    WA --&gt;|&#34;sequential/parallel/loop&#34;| FA
+    GEN -.-&gt; ITER
+    ITER --&gt; RunnerRun
+    FA -.-&gt;|&#34;addEvent&#34;| RS
+
+    style User fill:#e1f5fe
+    style FlowLayer fill:#f3e5f5
+    style AgentImpl fill:#e8f5e9
+    style ReactLoop fill:#fff3e0
+    style ToolLayer fill:#fce4ec
+    style AsyncComm fill:#f5f5f5
+    style SessionState fill:#fffde7
+&lt;/div&gt;
+&lt;h2 id=&#34;2-整体执行逻辑&#34;&gt;2. 整体执行逻辑&lt;/h2&gt;
+&lt;h3 id=&#34;21-全局执行流程总览&#34;&gt;2.1 全局执行流程总览&lt;/h3&gt;
+&lt;p&gt;Eino ADK 的执行链路可以用一句话概括：&lt;strong&gt;用户调用 → Runner 入口 → flowAgent 编排层 → 具体 Agent 实现层 → ReAct 循环 → 事件流回传&lt;/strong&gt;。整个过程是 &lt;strong&gt;纯异步、流式、事件驱动&lt;/strong&gt; 的架构。&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析</title>
+      <link>http://localhost:1313/posts/linger-technical-deep-dive/</link>
+      <pubDate>Thu, 26 Feb 2026 20:03:33 +0800</pubDate>
+      <guid>http://localhost:1313/posts/linger-technical-deep-dive/</guid>
+      <description>&lt;h1 id=&#34;linger基于-langgraph-的-ai-科技日报生成系统技术解析&#34;&gt;Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析&lt;/h1&gt;
+&lt;h2 id=&#34;引言&#34;&gt;引言&lt;/h2&gt;
+&lt;p&gt;在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。&lt;/p&gt;
+&lt;p&gt;本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。&lt;/p&gt;
+&lt;h2 id=&#34;系统架构概览&#34;&gt;系统架构概览&lt;/h2&gt;
+&lt;p&gt;Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：&lt;/p&gt;
+&lt;div class=&#34;mermaid&#34;&gt;
+  graph TB
+    subgraph &#34;数据采集层&#34;
+        RSS[RSS Collector]
+        WEB[Web Scraper]
+        JINA[Jina Reader]
+    end
+
+    subgraph &#34;LangGraph Workflow&#34;
+        COLLECT[Collect Node]
+        SUMMARIZE[Summarize Node]
+        ILLUSTRATE[Illustrate Node]
+        PUBLISH[Publish Node]
+    end
+
+    subgraph &#34;AI 服务层&#34;
+        LLM[Doubao LLM]
+        IMG[Seedream 图像生成]
+    end
+
+    subgraph &#34;输出层&#34;
+        GH[GitHub Pages]
+        PICBED[图床服务]
+    end
+
+    RSS --&gt; COLLECT
+    WEB --&gt; COLLECT
+    JINA --&gt; WEB
+
+    COLLECT --&gt; SUMMARIZE
+    SUMMARIZE --&gt; LLM
+    LLM --&gt; SUMMARIZE
+    SUMMARIZE --&gt; ILLUSTRATE
+    ILLUSTRATE --&gt; IMG
+    IMG --&gt; PICBED
+    ILLUSTRATE --&gt; PUBLISH
+    PUBLISH --&gt; GH
+&lt;/div&gt;
+&lt;h2 id=&#34;核心模块详解&#34;&gt;核心模块详解&lt;/h2&gt;
+&lt;h3 id=&#34;1-langgraph-工作流设计&#34;&gt;1. LangGraph 工作流设计&lt;/h3&gt;
+&lt;p&gt;LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：&lt;/p&gt;</description>
+    </item>
     <item>
       <title>ADK 多智能体协作的状态管理与冲突解决策略</title>
       <link>http://localhost:1313/posts/adk-multi-agent-collab/</link>

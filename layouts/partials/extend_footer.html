@@ -27,3 +27,19 @@
         访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
     </span>
 </div>
+
+<!-- 文章页阅读量：等不蒜子数据加载后显示 -->
+<script>
+(function() {
+    var el = document.getElementById('busuanzi_container_page_pv');
+    if (!el) return;
+    var check = setInterval(function() {
+        var val = document.getElementById('busuanzi_value_page_pv');
+        if (val && val.innerText !== '') {
+            el.style.display = 'inline';
+            clearInterval(check);
+        }
+    }, 200);
+    setTimeout(function() { clearInterval(check); }, 10000);
+})();
+</script>
