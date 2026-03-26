@@ -1,13 +1,4 @@
-<!DOCTYPE html>
-<html lang="en" dir="auto" data-theme="auto">
-
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="robots" content="noindex, nofollow">
-<title>Harness Engineering 实践指南：让 AI Agent 可靠地写代码 | Linger-AI Space</title>
-<meta name="keywords" content="AI, 技术">
-<meta name="description" content="2026 年 2 月，&ldquo;Harness Engineering&quot;这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。
+<!doctype html><html lang=en dir=auto data-theme=auto><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>Harness Engineering 实践指南：让 AI Agent 可靠地写代码 | Linger-AI Space</title><meta name=keywords content="AI,技术"><meta name=description content='2026 年 2 月，&ldquo;Harness Engineering"这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。
 这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。
 一、Harness 是什么
 Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。
@@ -20,450 +11,49 @@ Harness Engineering — 系统怎么防崩、怎么量化、怎么修
 
 Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。
 二、Agent 为什么会翻车
-别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。">
-<meta name="author" content="Linger">
-<link rel="canonical" href="http://localhost:1313/posts/harness-engineering-guide/">
-<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
-<link rel="icon" href="http://localhost:1313/favicon.ico">
-<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
-<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
-<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
-<meta name="theme-color" content="#2e2e33">
-<meta name="msapplication-TileColor" content="#2e2e33">
-<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/harness-engineering-guide/">
-<noscript>
-    <style>
-        #theme-toggle,
-        .top-link {
-            display: none;
-        }
+别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。'><meta name=author content="Linger"><link rel=canonical href=https://linger-ai.github.io/posts/harness-engineering-guide/><link crossorigin=anonymous href=/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css integrity="sha256-2jIR5e+Ge/K3X9WmUVz+1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as=style><link rel=icon href=https://linger-ai.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://linger-ai.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://linger-ai.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://linger-ai.github.io/apple-touch-icon.png><link rel=mask-icon href=https://linger-ai.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><link rel=alternate hreflang=en href=https://linger-ai.github.io/posts/harness-engineering-guide/><noscript><style>#theme-toggle,.top-link{display:none}</style><style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--code-block-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51);color-scheme:dark}.list{background:var(--theme)}.toc{background:var(--entry)}}@media(prefers-color-scheme:light){.list::-webkit-scrollbar-thumb{border-color:var(--code-bg)}}</style></noscript><script>localStorage.getItem("pref-theme")==="dark"?document.querySelector("html").dataset.theme="dark":localStorage.getItem("pref-theme")==="light"?document.querySelector("html").dataset.theme="light":window.matchMedia("(prefers-color-scheme: dark)").matches?document.querySelector("html").dataset.theme="dark":document.querySelector("html").dataset.theme="light"</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-M0R8M4JVEY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-M0R8M4JVEY")}</script><meta property="og:url" content="https://linger-ai.github.io/posts/harness-engineering-guide/"><meta property="og:site_name" content="Linger-AI Space"><meta property="og:title" content="Harness Engineering 实践指南：让 AI Agent 可靠地写代码"><meta property="og:description" content='2026 年 2 月，“Harness Engineering"这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。
+这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。
+一、Harness 是什么 Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。
+Harness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。
+它和 Prompt Engineering、Context Engineering 构成嵌套关系：
+Prompt Engineering — 怎么跟模型说话 Context Engineering — 给 Agent 看什么 Harness Engineering — 系统怎么防崩、怎么量化、怎么修 Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。
+二、Agent 为什么会翻车 别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。'><meta property="og:locale" content="en-us"><meta property="og:type" content="article"><meta property="article:section" content="posts"><meta property="article:published_time" content="2026-03-26T16:00:00+08:00"><meta property="article:modified_time" content="2026-03-26T16:00:00+08:00"><meta property="article:tag" content="AI"><meta property="article:tag" content="技术"><meta name=twitter:card content="summary"><meta name=twitter:title content="Harness Engineering 实践指南：让 AI Agent 可靠地写代码"><meta name=twitter:description content='2026 年 2 月，&ldquo;Harness Engineering"这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。
+这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。
+一、Harness 是什么
+Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。
+Harness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。
+它和 Prompt Engineering、Context Engineering 构成嵌套关系：
 
-    </style>
-    <style>
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --theme: rgb(29, 30, 32);
-                --entry: rgb(46, 46, 51);
-                --primary: rgb(218, 218, 219);
-                --secondary: rgb(155, 156, 157);
-                --tertiary: rgb(65, 66, 68);
-                --content: rgb(196, 196, 197);
-                --code-block-bg: rgb(46, 46, 51);
-                --code-bg: rgb(55, 56, 62);
-                --border: rgb(51, 51, 51);
-                color-scheme: dark;
-            }
+Prompt Engineering — 怎么跟模型说话
+Context Engineering — 给 Agent 看什么
+Harness Engineering — 系统怎么防崩、怎么量化、怎么修
 
-            .list {
-                background: var(--theme);
-            }
-
-            .toc {
-                background: var(--entry);
-            }
-        }
-
-        @media (prefers-color-scheme: light) {
-            .list::-webkit-scrollbar-thumb {
-                border-color: var(--code-bg);
-            }
-        }
-
-    </style>
-</noscript>
-<script>
-    if (localStorage.getItem("pref-theme") === "dark") {
-        document.querySelector("html").dataset.theme = 'dark';
-    } else if (localStorage.getItem("pref-theme") === "light") {
-       document.querySelector("html").dataset.theme = 'light';
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.querySelector("html").dataset.theme = 'dark';
-    } else {
-        document.querySelector("html").dataset.theme = 'light';
-    }
-
-</script>
-</head>
-<body id="top">
-    <header class="header">
-    <nav class="nav">
-        <div class="logo">
-            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
-            <div class="logo-switches">
-                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
-                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
-                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y1="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <ul id="menu">
-            <li>
-                <a href="http://localhost:1313/posts" title="文章">
-                    <span>文章</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/archives" title="归档">
-                    <span>归档</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/tags" title="标签">
-                    <span>标签</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
-                    <span>搜索</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
-</header>
-<main class="main">
-
-<article class="post-single">
-  <header class="post-header">
-    
-    <h1 class="post-title entry-hint-parent">
-      Harness Engineering 实践指南：让 AI Agent 可靠地写代码
-    </h1>
-    <div class="post-meta">
-
-<span title='2026-03-26 16:00:00 +0800 CST'>March 26, 2026</span>&nbsp;·&nbsp;<span>3 min</span>&nbsp;·&nbsp;<span>495 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
-
-</div>
-  </header> 
-  <div class="post-content"><p>2026 年 2 月，&ldquo;Harness Engineering&quot;这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。</p>
-<p>这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。</p>
-<h2 id="一harness-是什么">一、Harness 是什么<a hidden class="anchor" aria-hidden="true" href="#一harness-是什么">#</a></h2>
-<p>Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。</p>
-<p><strong>Harness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。</strong></p>
-<p>它和 Prompt Engineering、Context Engineering 构成嵌套关系：</p>
-<ul>
-<li><strong>Prompt Engineering</strong> — 怎么跟模型说话</li>
-<li><strong>Context Engineering</strong> — 给 Agent 看什么</li>
-<li><strong>Harness Engineering</strong> — 系统怎么防崩、怎么量化、怎么修</li>
-</ul>
-<p>Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。</p>
-<h2 id="二agent-为什么会翻车">二、Agent 为什么会翻车<a hidden class="anchor" aria-hidden="true" href="#二agent-为什么会翻车">#</a></h2>
-<p>别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：<strong>仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%</strong>——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。</p>
-<p>瓶颈不在模型智能，而在基础设施。</p>
-<p>Anthropic 在做长时间运行 Agent 的过程中，总结了四种典型的翻车模式：</p>
-<p><strong>1. 一步到位。</strong> Agent 试图一次做完所有事情，上下文窗口耗尽后留下半成品和没有文档的代码。下个会话启动时只能花大量时间猜测之前发生了什么。</p>
-<p><strong>2. 过早宣布完成。</strong> 项目后期，Agent 看到已有进展就直接宣布任务结束——即使还有大量功能未实现。</p>
-<p><strong>3. 不测试就标记完成。</strong> 写完代码就算 done，单元测试通过不代表功能端到端可用。</p>
-<p><strong>4. 环境启动困难。</strong> 每次新会话花大量 token 弄清楚怎么跑项目，而不是把时间花在实际开发上。</p>
-<p>另一个关键经验来自 Dex Horthy：<strong>上下文窗口利用率存在甜蜜区间，大约 40% 就开始走下坡路</strong>。超过这个阈值，给 Agent 塞再多工具和文档只会让它变笨，而不是变聪明。</p>
-<p>这些都不是模型能力问题，是工程结构问题。Harness 解决的就是这些事。</p>
-<h2 id="三四大支柱">三、四大支柱<a hidden class="anchor" aria-hidden="true" href="#三四大支柱">#</a></h2>
-<p>综合 OpenAI、Anthropic、Stripe 等多个独立团队的实践，四种模式反复出现并形成收敛。</p>
-<h3 id="支柱一上下文架构">支柱一：上下文架构<a hidden class="anchor" aria-hidden="true" href="#支柱一上下文架构">#</a></h3>
-<blockquote>
-<p>Agent 应当恰好获得当前任务所需的上下文——不多不少。</p>
-</blockquote>
-<p>所有团队都发现，把所有指令塞进一个文件无法扩展。解决方案是分层上下文与渐进式披露：</p>
-<table>
-  <thead>
-      <tr>
-          <th>层级</th>
-          <th>加载时机</th>
-          <th>内容示例</th>
-          <th>占用</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>Tier 1</td>
-          <td>每次会话自动加载</td>
-          <td><code>AGENTS.md</code>、项目结构概览</td>
-          <td>最小</td>
-      </tr>
-      <tr>
-          <td>Tier 2</td>
-          <td>特定子 Agent 调用时</td>
-          <td>专业化 Agent 上下文、领域知识</td>
-          <td>中等</td>
-      </tr>
-      <tr>
-          <td>Tier 3</td>
-          <td>Agent 主动查询时</td>
-          <td>设计文档、规格说明、历史记录</td>
-          <td>按需</td>
-      </tr>
-  </tbody>
-</table>
-<p>核心思路：让 Agent 在 Smart Zone（上下文 &lt; 40%）内工作，而不是把它推进 Dumb Zone。</p>
-<h3 id="支柱二agent-专业化">支柱二：Agent 专业化<a hidden class="anchor" aria-hidden="true" href="#支柱二agent-专业化">#</a></h3>
-<blockquote>
-<p>专注特定领域、拥有受限工具的 Agent，优于拥有全部权限的通用 Agent。</p>
-</blockquote>
-<p>专业化本身就是上下文管理策略——每个 Agent 携带更少无关信息，自然运行在 Smart Zone 内。实践中的角色分工：</p>
-<table>
-  <thead>
-      <tr>
-          <th>角色</th>
-          <th>职责</th>
-          <th>工具权限</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>研究 Agent</td>
-          <td>探索代码库、分析实现</td>
-          <td>只读</td>
-      </tr>
-      <tr>
-          <td>规划 Agent</td>
-          <td>需求分解为任务</td>
-          <td>只读</td>
-      </tr>
-      <tr>
-          <td>执行 Agent</td>
-          <td>实现单个具体任务</td>
-          <td>限定范围读写</td>
-      </tr>
-      <tr>
-          <td>审查 Agent</td>
-          <td>审计完成的工作</td>
-          <td>只读 + 标记</td>
-      </tr>
-      <tr>
-          <td>清理 Agent</td>
-          <td>对抗熵积累</td>
-          <td>读写</td>
-      </tr>
-  </tbody>
-</table>
-<p>Carlini 在用 16 个 Claude 实例构建 C 编译器时，就是随着项目成熟逐步拆分出编译器核心、去重、性能优化、文档四类角色。</p>
-<h3 id="支柱三持久化记忆">支柱三：持久化记忆<a hidden class="anchor" aria-hidden="true" href="#支柱三持久化记忆">#</a></h3>
-<blockquote>
-<p>进度持久化在文件系统上，而非上下文窗口中。</p>
-</blockquote>
-<p>每次新 Agent 会话从零开始，通过文件系统制品重建上下文。关键实践：</p>
-<ul>
-<li>用 <strong>JSON 而非 Markdown</strong> 追踪 feature 状态——Agent 不太会错误修改结构化数据</li>
-<li>每次会话结束时提交 git commit + 更新进度文件</li>
-<li>新会话启动时先读 git log + 进度文件重建上下文</li>
-</ul>
-<h3 id="支柱四结构化执行">支柱四：结构化执行<a hidden class="anchor" aria-hidden="true" href="#支柱四结构化执行">#</a></h3>
-<blockquote>
-<p>将思考与执行分离。</p>
-</blockquote>
-<p>所有团队都施加了刻意的执行序列：<strong>理解 -&gt; 规划 -&gt; 执行 -&gt; 验证</strong>。</p>
-<p>Boris Tane 的原则最简洁：&ldquo;永远不要让 Agent 在你审查和批准书面计划之前写代码。&ldquo;审查计划远比审查代码快。当规格正确时，实现自然可靠；当规格有误时，可以在写出 500 行代码之前及时纠正。</p>
-<h2 id="四anthropic-的双阶段方案">四、Anthropic 的双阶段方案<a hidden class="anchor" aria-hidden="true" href="#四anthropic-的双阶段方案">#</a></h2>
-<p>这是目前最完整、最可复制的长时间运行 Agent 实战模式，值得单独展开。</p>
-<p>核心问题：Agent 必须在离散会话中工作，每个新会话对之前发生的事一无所知。就像一个全员轮班、交接时零记忆的工程团队。</p>
-<h3 id="初始化-agent首次会话">初始化 Agent（首次会话）<a hidden class="anchor" aria-hidden="true" href="#初始化-agent首次会话">#</a></h3>
-<p>用专门的 prompt 要求模型建立初始环境：</p>
-<ul>
-<li>生成 <code>init.sh</code> 脚本（启动开发服务器）</li>
-<li>创建 <code>claude-progress.txt</code> 进度日志</li>
-<li>基于高级 prompt 生成结构化 feature list（200+ 个功能，全部标记为 failing）</li>
-<li>做初始 git commit</li>
-</ul>
-<p>Feature list 的数据结构示例：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;category&#34;</span>: <span style="color:#e6db74">&#34;functional&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;description&#34;</span>: <span style="color:#e6db74">&#34;New chat button creates a fresh conversation&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;steps&#34;</span>: [
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Navigate to main interface&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Click the &#39;New Chat&#39; button&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Verify a new conversation is created&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Check that chat area shows welcome state&#34;</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Verify conversation appears in sidebar&#34;</span>
-</span></span><span style="display:flex;"><span>  ],
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;passes&#34;</span>: <span style="color:#66d9ef">false</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h3 id="编码-agent后续每次会话">编码 Agent（后续每次会话）<a hidden class="anchor" aria-hidden="true" href="#编码-agent后续每次会话">#</a></h3>
-<p>每次会话有固定的启动流程：</p>
-<ol>
-<li><code>pwd</code> 确认工作目录</li>
-<li>读 git log + 进度文件，了解最近工作</li>
-<li>读 feature list，选最高优先级的未完成功能</li>
-<li>启动开发服务器，跑基础端到端测试</li>
-<li>确认基础功能正常后，开始新功能开发</li>
-</ol>
-<p>会话结束时：提交 git commit（描述性消息）+ 更新进度文件，留下干净状态。</p>
-<h3 id="几个关键技巧">几个关键技巧<a hidden class="anchor" aria-hidden="true" href="#几个关键技巧">#</a></h3>
-<ul>
-<li><strong>严禁删改测试项。</strong> prompt 中明确写 &ldquo;It is unacceptable to remove or edit tests&rdquo;，防止 Agent 通过降低标准来&quot;完成&quot;任务。</li>
-<li><strong>每次先验证再开发。</strong> 先确认 app 没坏，再做新功能。否则 Agent 会在已有 bug 上叠加更多问题。</li>
-<li><strong>提供浏览器自动化工具。</strong> 通过 Puppeteer MCP 让 Agent 像人类一样做端到端测试，能发现代码层面看不到的 bug。</li>
-</ul>
-<h2 id="五落地-checklist">五、落地 Checklist<a hidden class="anchor" aria-hidden="true" href="#五落地-checklist">#</a></h2>
-<p>按优先级分三档，从本周就能做的事情开始。</p>
-<h3 id="p0本周就能做">P0：本周就能做<a hidden class="anchor" aria-hidden="true" href="#p0本周就能做">#</a></h3>
-<p><strong>创建 <code>AGENTS.md</code> 反馈循环。</strong> 仓库根目录放一个 Markdown 文件，写入项目结构、编码规范、架构约束。核心原则：每当 Agent 犯错就更新这个文件。Hashimoto 的 Ghostty 项目里，这个文件的每一行都对应一个历史失败案例——文档变成了&quot;错误疫苗库&rdquo;。</p>
-<p><strong>自定义 Linter + 错误消息嵌入修复指令。</strong> 传统 Linter 只说&quot;你违规了&rdquo;。给 Agent 用的 Linter 要同时说&quot;怎么修&rdquo;。例如：<code>ERROR: Service layer cannot import from UI. Move this type to Types layer. See docs/architecture.md</code>。这样工具在 Agent 工作时同时&quot;教会&quot;它。</p>
-<p><strong>CI 作为强制执行层。</strong> 自动化测试、类型检查、Lint 跑在 CI 上。文档里写&quot;不要这样做&quot;没用——如果不能机械化执行，Agent 就会偏离。</p>
-<h3 id="p1一两周内搭建">P1：一两周内搭建<a hidden class="anchor" aria-hidden="true" href="#p1一两周内搭建">#</a></h3>
-<p><strong>JSON 格式的进度文件 + feature list。</strong> 参考 Anthropic 方案，用结构化 JSON 追踪状态而非 Markdown。</p>
-<p><strong>分层上下文体系。</strong> 把 Tier 1/2/3 的上下文分离，避免把所有信息堆在一个文件里。</p>
-<p><strong>思考与执行分离的工作流。</strong> 强制 Agent 走 Research -&gt; Plan -&gt; Implement -&gt; Verify 流程，规划阶段输出计划文件，审核后才执行。</p>
-<h3 id="p2成熟后演进">P2：成熟后演进<a hidden class="anchor" aria-hidden="true" href="#p2成熟后演进">#</a></h3>
-<p><strong>Agent 角色专业化。</strong> 按研究/规划/执行/审查/清理拆分角色，限定工具权限。</p>
-<p><strong>熵管理 Agent。</strong> 定期跑后台 Agent 清理低质量代码、检查文档一致性。OpenAI 的经验：清理吞吐量要与生成吞吐量成比例。</p>
-<p><strong>可观测性集成。</strong> 给 Agent 接入浏览器自动化（Puppeteer MCP）、日志查询、指标查询，让性能目标变得可度量。</p>
-<h2 id="六最后几句话">六、最后几句话<a hidden class="anchor" aria-hidden="true" href="#六最后几句话">#</a></h2>
-<p>Harness Engineering 标志着 AI 辅助开发从&quot;让模型写代码&quot;到&quot;设计让模型可靠工作的系统&quot;的范式转变。</p>
-<p>有三个判断值得记住：</p>
-<p><strong>模型越强，Harness 越重要。</strong> Carlini 的 C 编译器项目证明了这一点——Opus 4.5 能产出能用的编译器，Opus 4.6 能编译 Linux 内核，但每个能力级别都得重新设计 Harness。</p>
-<p><strong>Harness 应趋向简化。</strong> Manus 团队半年重写五次 Harness，每次方向都是简化。如果越做越复杂，大概率是过度工程化了。</p>
-<p><strong>三个开放问题仍待解答。</strong> 棕地项目如何改造（零成功案例）、功能验证如何系统化（擅长&quot;约束不做错事&quot;但不擅长&quot;验证做对了事&quot;）、AI 代码的长期可维护性（技术债积累方式不同于人类代码）。</p>
-<p>用 Addy Osmani 的话收尾：&ldquo;AI 编码的兴起并没有取代软件工程的工艺——它抬高了工艺的门槛。&rdquo;</p>
-<p>工程师的核心工作正在转变：从写代码，到设计让 AI 可靠地写代码的系统。</p>
-
-
-  </div>
-
-  <footer class="post-footer">
-    <ul class="post-tags">
-      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
-      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
-    </ul>
-  </footer>
-</article>
-    </main>
-    
-<footer class="footer">
-        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
-
-    <span>
-        Powered by
-        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
-        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
-    </span>
-</footer>
-<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
-        <path d="M12 6H0l6-6z" />
-    </svg>
-</a>
-<script type="module">
+Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。
+二、Agent 为什么会翻车
+别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。'><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://linger-ai.github.io/posts/"},{"@type":"ListItem","position":2,"name":"Harness Engineering 实践指南：让 AI Agent 可靠地写代码","item":"https://linger-ai.github.io/posts/harness-engineering-guide/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"Harness Engineering 实践指南：让 AI Agent 可靠地写代码","name":"Harness Engineering 实践指南：让 AI Agent 可靠地写代码","description":"2026 年 2 月，\u0026ldquo;Harness Engineering\u0026quot;这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。\n这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。\n一、Harness 是什么 Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。\nHarness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。\n它和 Prompt Engineering、Context Engineering 构成嵌套关系：\nPrompt Engineering — 怎么跟模型说话 Context Engineering — 给 Agent 看什么 Harness Engineering — 系统怎么防崩、怎么量化、怎么修 Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。\n二、Agent 为什么会翻车 别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。\n","keywords":["AI","技术"],"articleBody":"2026 年 2 月，“Harness Engineering\"这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。\n这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。\n一、Harness 是什么 Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。\nHarness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。\n它和 Prompt Engineering、Context Engineering 构成嵌套关系：\nPrompt Engineering — 怎么跟模型说话 Context Engineering — 给 Agent 看什么 Harness Engineering — 系统怎么防崩、怎么量化、怎么修 Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。\n二、Agent 为什么会翻车 别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。\n瓶颈不在模型智能，而在基础设施。\nAnthropic 在做长时间运行 Agent 的过程中，总结了四种典型的翻车模式：\n1. 一步到位。 Agent 试图一次做完所有事情，上下文窗口耗尽后留下半成品和没有文档的代码。下个会话启动时只能花大量时间猜测之前发生了什么。\n2. 过早宣布完成。 项目后期，Agent 看到已有进展就直接宣布任务结束——即使还有大量功能未实现。\n3. 不测试就标记完成。 写完代码就算 done，单元测试通过不代表功能端到端可用。\n4. 环境启动困难。 每次新会话花大量 token 弄清楚怎么跑项目，而不是把时间花在实际开发上。\n另一个关键经验来自 Dex Horthy：上下文窗口利用率存在甜蜜区间，大约 40% 就开始走下坡路。超过这个阈值，给 Agent 塞再多工具和文档只会让它变笨，而不是变聪明。\n这些都不是模型能力问题，是工程结构问题。Harness 解决的就是这些事。\n三、四大支柱 综合 OpenAI、Anthropic、Stripe 等多个独立团队的实践，四种模式反复出现并形成收敛。\n支柱一：上下文架构 Agent 应当恰好获得当前任务所需的上下文——不多不少。\n所有团队都发现，把所有指令塞进一个文件无法扩展。解决方案是分层上下文与渐进式披露：\n层级 加载时机 内容示例 占用 Tier 1 每次会话自动加载 AGENTS.md、项目结构概览 最小 Tier 2 特定子 Agent 调用时 专业化 Agent 上下文、领域知识 中等 Tier 3 Agent 主动查询时 设计文档、规格说明、历史记录 按需 核心思路：让 Agent 在 Smart Zone（上下文 \u003c 40%）内工作，而不是把它推进 Dumb Zone。\n支柱二：Agent 专业化 专注特定领域、拥有受限工具的 Agent，优于拥有全部权限的通用 Agent。\n专业化本身就是上下文管理策略——每个 Agent 携带更少无关信息，自然运行在 Smart Zone 内。实践中的角色分工：\n角色 职责 工具权限 研究 Agent 探索代码库、分析实现 只读 规划 Agent 需求分解为任务 只读 执行 Agent 实现单个具体任务 限定范围读写 审查 Agent 审计完成的工作 只读 + 标记 清理 Agent 对抗熵积累 读写 Carlini 在用 16 个 Claude 实例构建 C 编译器时，就是随着项目成熟逐步拆分出编译器核心、去重、性能优化、文档四类角色。\n支柱三：持久化记忆 进度持久化在文件系统上，而非上下文窗口中。\n每次新 Agent 会话从零开始，通过文件系统制品重建上下文。关键实践：\n用 JSON 而非 Markdown 追踪 feature 状态——Agent 不太会错误修改结构化数据 每次会话结束时提交 git commit + 更新进度文件 新会话启动时先读 git log + 进度文件重建上下文 支柱四：结构化执行 将思考与执行分离。\n所有团队都施加了刻意的执行序列：理解 -\u003e 规划 -\u003e 执行 -\u003e 验证。\nBoris Tane 的原则最简洁：“永远不要让 Agent 在你审查和批准书面计划之前写代码。“审查计划远比审查代码快。当规格正确时，实现自然可靠；当规格有误时，可以在写出 500 行代码之前及时纠正。\n四、Anthropic 的双阶段方案 这是目前最完整、最可复制的长时间运行 Agent 实战模式，值得单独展开。\n核心问题：Agent 必须在离散会话中工作，每个新会话对之前发生的事一无所知。就像一个全员轮班、交接时零记忆的工程团队。\n初始化 Agent（首次会话） 用专门的 prompt 要求模型建立初始环境：\n生成 init.sh 脚本（启动开发服务器） 创建 claude-progress.txt 进度日志 基于高级 prompt 生成结构化 feature list（200+ 个功能，全部标记为 failing） 做初始 git commit Feature list 的数据结构示例：\n{ \"category\": \"functional\", \"description\": \"New chat button creates a fresh conversation\", \"steps\": [ \"Navigate to main interface\", \"Click the 'New Chat' button\", \"Verify a new conversation is created\", \"Check that chat area shows welcome state\", \"Verify conversation appears in sidebar\" ], \"passes\": false } 编码 Agent（后续每次会话） 每次会话有固定的启动流程：\npwd 确认工作目录 读 git log + 进度文件，了解最近工作 读 feature list，选最高优先级的未完成功能 启动开发服务器，跑基础端到端测试 确认基础功能正常后，开始新功能开发 会话结束时：提交 git commit（描述性消息）+ 更新进度文件，留下干净状态。\n几个关键技巧 严禁删改测试项。 prompt 中明确写 “It is unacceptable to remove or edit tests”，防止 Agent 通过降低标准来\"完成\"任务。 每次先验证再开发。 先确认 app 没坏，再做新功能。否则 Agent 会在已有 bug 上叠加更多问题。 提供浏览器自动化工具。 通过 Puppeteer MCP 让 Agent 像人类一样做端到端测试，能发现代码层面看不到的 bug。 五、落地 Checklist 按优先级分三档，从本周就能做的事情开始。\nP0：本周就能做 创建 AGENTS.md 反馈循环。 仓库根目录放一个 Markdown 文件，写入项目结构、编码规范、架构约束。核心原则：每当 Agent 犯错就更新这个文件。Hashimoto 的 Ghostty 项目里，这个文件的每一行都对应一个历史失败案例——文档变成了\"错误疫苗库”。\n自定义 Linter + 错误消息嵌入修复指令。 传统 Linter 只说\"你违规了”。给 Agent 用的 Linter 要同时说\"怎么修”。例如：ERROR: Service layer cannot import from UI. Move this type to Types layer. See docs/architecture.md。这样工具在 Agent 工作时同时\"教会\"它。\nCI 作为强制执行层。 自动化测试、类型检查、Lint 跑在 CI 上。文档里写\"不要这样做\"没用——如果不能机械化执行，Agent 就会偏离。\nP1：一两周内搭建 JSON 格式的进度文件 + feature list。 参考 Anthropic 方案，用结构化 JSON 追踪状态而非 Markdown。\n分层上下文体系。 把 Tier 1/2/3 的上下文分离，避免把所有信息堆在一个文件里。\n思考与执行分离的工作流。 强制 Agent 走 Research -\u003e Plan -\u003e Implement -\u003e Verify 流程，规划阶段输出计划文件，审核后才执行。\nP2：成熟后演进 Agent 角色专业化。 按研究/规划/执行/审查/清理拆分角色，限定工具权限。\n熵管理 Agent。 定期跑后台 Agent 清理低质量代码、检查文档一致性。OpenAI 的经验：清理吞吐量要与生成吞吐量成比例。\n可观测性集成。 给 Agent 接入浏览器自动化（Puppeteer MCP）、日志查询、指标查询，让性能目标变得可度量。\n六、最后几句话 Harness Engineering 标志着 AI 辅助开发从\"让模型写代码\"到\"设计让模型可靠工作的系统\"的范式转变。\n有三个判断值得记住：\n模型越强，Harness 越重要。 Carlini 的 C 编译器项目证明了这一点——Opus 4.5 能产出能用的编译器，Opus 4.6 能编译 Linux 内核，但每个能力级别都得重新设计 Harness。\nHarness 应趋向简化。 Manus 团队半年重写五次 Harness，每次方向都是简化。如果越做越复杂，大概率是过度工程化了。\n三个开放问题仍待解答。 棕地项目如何改造（零成功案例）、功能验证如何系统化（擅长\"约束不做错事\"但不擅长\"验证做对了事\"）、AI 代码的长期可维护性（技术债积累方式不同于人类代码）。\n用 Addy Osmani 的话收尾：“AI 编码的兴起并没有取代软件工程的工艺——它抬高了工艺的门槛。”\n工程师的核心工作正在转变：从写代码，到设计让 AI 可靠地写代码的系统。\n","wordCount":"495","inLanguage":"en","datePublished":"2026-03-26T16:00:00+08:00","dateModified":"2026-03-26T16:00:00+08:00","author":{"@type":"Person","name":"Linger"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://linger-ai.github.io/posts/harness-engineering-guide/"},"publisher":{"@type":"Organization","name":"Linger-AI Space","logo":{"@type":"ImageObject","url":"https://linger-ai.github.io/favicon.ico"}}}</script></head><body id=top><header class=header><nav class=nav><div class=logo><a href=https://linger-ai.github.io/ accesskey=h title="Linger-AI Space (Alt + H)">Linger-AI Space</a><div class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)" aria-label="Toggle theme">
+<svg id="moon" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+<svg id="sun" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></div></div><ul id=menu><li><a href=https://linger-ai.github.io/posts title=文章><span>文章</span></a></li><li><a href=https://linger-ai.github.io/bulletin title=灵儿情报站><span>灵儿情报站</span></a></li><li><a href=https://linger-ai.github.io/archives title=归档><span>归档</span></a></li><li><a href=https://linger-ai.github.io/tags title=标签><span>标签</span></a></li><li><a href=https://linger-ai.github.io/search title="搜索 (Alt + /)" accesskey=/><span>搜索</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><h1 class="post-title entry-hint-parent">Harness Engineering 实践指南：让 AI Agent 可靠地写代码</h1><div class=post-meta><span title='2026-03-26 16:00:00 +0800 CST'>March 26, 2026</span>&nbsp;·&nbsp;<span>3 min</span>&nbsp;·&nbsp;<span>495 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></div></header><div class=post-content><p>2026 年 2 月，&ldquo;Harness Engineering"这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。</p><p>这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。</p><h2 id=一harness-是什么>一、Harness 是什么<a hidden class=anchor aria-hidden=true href=#一harness-是什么>#</a></h2><p>Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。</p><p><strong>Harness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。</strong></p><p>它和 Prompt Engineering、Context Engineering 构成嵌套关系：</p><ul><li><strong>Prompt Engineering</strong> — 怎么跟模型说话</li><li><strong>Context Engineering</strong> — 给 Agent 看什么</li><li><strong>Harness Engineering</strong> — 系统怎么防崩、怎么量化、怎么修</li></ul><p>Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。</p><h2 id=二agent-为什么会翻车>二、Agent 为什么会翻车<a hidden class=anchor aria-hidden=true href=#二agent-为什么会翻车>#</a></h2><p>别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：<strong>仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%</strong>——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。</p><p>瓶颈不在模型智能，而在基础设施。</p><p>Anthropic 在做长时间运行 Agent 的过程中，总结了四种典型的翻车模式：</p><p><strong>1. 一步到位。</strong> Agent 试图一次做完所有事情，上下文窗口耗尽后留下半成品和没有文档的代码。下个会话启动时只能花大量时间猜测之前发生了什么。</p><p><strong>2. 过早宣布完成。</strong> 项目后期，Agent 看到已有进展就直接宣布任务结束——即使还有大量功能未实现。</p><p><strong>3. 不测试就标记完成。</strong> 写完代码就算 done，单元测试通过不代表功能端到端可用。</p><p><strong>4. 环境启动困难。</strong> 每次新会话花大量 token 弄清楚怎么跑项目，而不是把时间花在实际开发上。</p><p>另一个关键经验来自 Dex Horthy：<strong>上下文窗口利用率存在甜蜜区间，大约 40% 就开始走下坡路</strong>。超过这个阈值，给 Agent 塞再多工具和文档只会让它变笨，而不是变聪明。</p><p>这些都不是模型能力问题，是工程结构问题。Harness 解决的就是这些事。</p><h2 id=三四大支柱>三、四大支柱<a hidden class=anchor aria-hidden=true href=#三四大支柱>#</a></h2><p>综合 OpenAI、Anthropic、Stripe 等多个独立团队的实践，四种模式反复出现并形成收敛。</p><h3 id=支柱一上下文架构>支柱一：上下文架构<a hidden class=anchor aria-hidden=true href=#支柱一上下文架构>#</a></h3><blockquote><p>Agent 应当恰好获得当前任务所需的上下文——不多不少。</p></blockquote><p>所有团队都发现，把所有指令塞进一个文件无法扩展。解决方案是分层上下文与渐进式披露：</p><table><thead><tr><th>层级</th><th>加载时机</th><th>内容示例</th><th>占用</th></tr></thead><tbody><tr><td>Tier 1</td><td>每次会话自动加载</td><td><code>AGENTS.md</code>、项目结构概览</td><td>最小</td></tr><tr><td>Tier 2</td><td>特定子 Agent 调用时</td><td>专业化 Agent 上下文、领域知识</td><td>中等</td></tr><tr><td>Tier 3</td><td>Agent 主动查询时</td><td>设计文档、规格说明、历史记录</td><td>按需</td></tr></tbody></table><p>核心思路：让 Agent 在 Smart Zone（上下文 &lt; 40%）内工作，而不是把它推进 Dumb Zone。</p><h3 id=支柱二agent-专业化>支柱二：Agent 专业化<a hidden class=anchor aria-hidden=true href=#支柱二agent-专业化>#</a></h3><blockquote><p>专注特定领域、拥有受限工具的 Agent，优于拥有全部权限的通用 Agent。</p></blockquote><p>专业化本身就是上下文管理策略——每个 Agent 携带更少无关信息，自然运行在 Smart Zone 内。实践中的角色分工：</p><table><thead><tr><th>角色</th><th>职责</th><th>工具权限</th></tr></thead><tbody><tr><td>研究 Agent</td><td>探索代码库、分析实现</td><td>只读</td></tr><tr><td>规划 Agent</td><td>需求分解为任务</td><td>只读</td></tr><tr><td>执行 Agent</td><td>实现单个具体任务</td><td>限定范围读写</td></tr><tr><td>审查 Agent</td><td>审计完成的工作</td><td>只读 + 标记</td></tr><tr><td>清理 Agent</td><td>对抗熵积累</td><td>读写</td></tr></tbody></table><p>Carlini 在用 16 个 Claude 实例构建 C 编译器时，就是随着项目成熟逐步拆分出编译器核心、去重、性能优化、文档四类角色。</p><h3 id=支柱三持久化记忆>支柱三：持久化记忆<a hidden class=anchor aria-hidden=true href=#支柱三持久化记忆>#</a></h3><blockquote><p>进度持久化在文件系统上，而非上下文窗口中。</p></blockquote><p>每次新 Agent 会话从零开始，通过文件系统制品重建上下文。关键实践：</p><ul><li>用 <strong>JSON 而非 Markdown</strong> 追踪 feature 状态——Agent 不太会错误修改结构化数据</li><li>每次会话结束时提交 git commit + 更新进度文件</li><li>新会话启动时先读 git log + 进度文件重建上下文</li></ul><h3 id=支柱四结构化执行>支柱四：结构化执行<a hidden class=anchor aria-hidden=true href=#支柱四结构化执行>#</a></h3><blockquote><p>将思考与执行分离。</p></blockquote><p>所有团队都施加了刻意的执行序列：<strong>理解 -> 规划 -> 执行 -> 验证</strong>。</p><p>Boris Tane 的原则最简洁：&ldquo;永远不要让 Agent 在你审查和批准书面计划之前写代码。&ldquo;审查计划远比审查代码快。当规格正确时，实现自然可靠；当规格有误时，可以在写出 500 行代码之前及时纠正。</p><h2 id=四anthropic-的双阶段方案>四、Anthropic 的双阶段方案<a hidden class=anchor aria-hidden=true href=#四anthropic-的双阶段方案>#</a></h2><p>这是目前最完整、最可复制的长时间运行 Agent 实战模式，值得单独展开。</p><p>核心问题：Agent 必须在离散会话中工作，每个新会话对之前发生的事一无所知。就像一个全员轮班、交接时零记忆的工程团队。</p><h3 id=初始化-agent首次会话>初始化 Agent（首次会话）<a hidden class=anchor aria-hidden=true href=#初始化-agent首次会话>#</a></h3><p>用专门的 prompt 要求模型建立初始环境：</p><ul><li>生成 <code>init.sh</code> 脚本（启动开发服务器）</li><li>创建 <code>claude-progress.txt</code> 进度日志</li><li>基于高级 prompt 生成结构化 feature list（200+ 个功能，全部标记为 failing）</li><li>做初始 git commit</li></ul><p>Feature list 的数据结构示例：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;category&#34;</span>: <span style=color:#e6db74>&#34;functional&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;description&#34;</span>: <span style=color:#e6db74>&#34;New chat button creates a fresh conversation&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;steps&#34;</span>: [
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;Navigate to main interface&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;Click the &#39;New Chat&#39; button&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;Verify a new conversation is created&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;Check that chat area shows welcome state&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;Verify conversation appears in sidebar&#34;</span>
+</span></span><span style=display:flex><span>  ],
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;passes&#34;</span>: <span style=color:#66d9ef>false</span>
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=编码-agent后续每次会话>编码 Agent（后续每次会话）<a hidden class=anchor aria-hidden=true href=#编码-agent后续每次会话>#</a></h3><p>每次会话有固定的启动流程：</p><ol><li><code>pwd</code> 确认工作目录</li><li>读 git log + 进度文件，了解最近工作</li><li>读 feature list，选最高优先级的未完成功能</li><li>启动开发服务器，跑基础端到端测试</li><li>确认基础功能正常后，开始新功能开发</li></ol><p>会话结束时：提交 git commit（描述性消息）+ 更新进度文件，留下干净状态。</p><h3 id=几个关键技巧>几个关键技巧<a hidden class=anchor aria-hidden=true href=#几个关键技巧>#</a></h3><ul><li><strong>严禁删改测试项。</strong> prompt 中明确写 &ldquo;It is unacceptable to remove or edit tests&rdquo;，防止 Agent 通过降低标准来"完成"任务。</li><li><strong>每次先验证再开发。</strong> 先确认 app 没坏，再做新功能。否则 Agent 会在已有 bug 上叠加更多问题。</li><li><strong>提供浏览器自动化工具。</strong> 通过 Puppeteer MCP 让 Agent 像人类一样做端到端测试，能发现代码层面看不到的 bug。</li></ul><h2 id=五落地-checklist>五、落地 Checklist<a hidden class=anchor aria-hidden=true href=#五落地-checklist>#</a></h2><p>按优先级分三档，从本周就能做的事情开始。</p><h3 id=p0本周就能做>P0：本周就能做<a hidden class=anchor aria-hidden=true href=#p0本周就能做>#</a></h3><p><strong>创建 <code>AGENTS.md</code> 反馈循环。</strong> 仓库根目录放一个 Markdown 文件，写入项目结构、编码规范、架构约束。核心原则：每当 Agent 犯错就更新这个文件。Hashimoto 的 Ghostty 项目里，这个文件的每一行都对应一个历史失败案例——文档变成了"错误疫苗库&rdquo;。</p><p><strong>自定义 Linter + 错误消息嵌入修复指令。</strong> 传统 Linter 只说"你违规了&rdquo;。给 Agent 用的 Linter 要同时说"怎么修&rdquo;。例如：<code>ERROR: Service layer cannot import from UI. Move this type to Types layer. See docs/architecture.md</code>。这样工具在 Agent 工作时同时"教会"它。</p><p><strong>CI 作为强制执行层。</strong> 自动化测试、类型检查、Lint 跑在 CI 上。文档里写"不要这样做"没用——如果不能机械化执行，Agent 就会偏离。</p><h3 id=p1一两周内搭建>P1：一两周内搭建<a hidden class=anchor aria-hidden=true href=#p1一两周内搭建>#</a></h3><p><strong>JSON 格式的进度文件 + feature list。</strong> 参考 Anthropic 方案，用结构化 JSON 追踪状态而非 Markdown。</p><p><strong>分层上下文体系。</strong> 把 Tier 1/2/3 的上下文分离，避免把所有信息堆在一个文件里。</p><p><strong>思考与执行分离的工作流。</strong> 强制 Agent 走 Research -> Plan -> Implement -> Verify 流程，规划阶段输出计划文件，审核后才执行。</p><h3 id=p2成熟后演进>P2：成熟后演进<a hidden class=anchor aria-hidden=true href=#p2成熟后演进>#</a></h3><p><strong>Agent 角色专业化。</strong> 按研究/规划/执行/审查/清理拆分角色，限定工具权限。</p><p><strong>熵管理 Agent。</strong> 定期跑后台 Agent 清理低质量代码、检查文档一致性。OpenAI 的经验：清理吞吐量要与生成吞吐量成比例。</p><p><strong>可观测性集成。</strong> 给 Agent 接入浏览器自动化（Puppeteer MCP）、日志查询、指标查询，让性能目标变得可度量。</p><h2 id=六最后几句话>六、最后几句话<a hidden class=anchor aria-hidden=true href=#六最后几句话>#</a></h2><p>Harness Engineering 标志着 AI 辅助开发从"让模型写代码"到"设计让模型可靠工作的系统"的范式转变。</p><p>有三个判断值得记住：</p><p><strong>模型越强，Harness 越重要。</strong> Carlini 的 C 编译器项目证明了这一点——Opus 4.5 能产出能用的编译器，Opus 4.6 能编译 Linux 内核，但每个能力级别都得重新设计 Harness。</p><p><strong>Harness 应趋向简化。</strong> Manus 团队半年重写五次 Harness，每次方向都是简化。如果越做越复杂，大概率是过度工程化了。</p><p><strong>三个开放问题仍待解答。</strong> 棕地项目如何改造（零成功案例）、功能验证如何系统化（擅长"约束不做错事"但不擅长"验证做对了事"）、AI 代码的长期可维护性（技术债积累方式不同于人类代码）。</p><p>用 Addy Osmani 的话收尾：&ldquo;AI 编码的兴起并没有取代软件工程的工艺——它抬高了工艺的门槛。&rdquo;</p><p>工程师的核心工作正在转变：从写代码，到设计让 AI 可靠地写代码的系统。</p></div><footer class=post-footer><ul class=post-tags><li><a href=https://linger-ai.github.io/tags/ai/>AI</a></li><li><a href=https://linger-ai.github.io/tags/%E6%8A%80%E6%9C%AF/>技术</a></li></ul></footer></article></main><footer class=footer><span>&copy; 2026 <a href=https://linger-ai.github.io/>Linger-AI Space</a></span> ·
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+<a href=https://github.com/adityatelange/hugo-PaperMod/ rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg viewBox="0 0 12 6" fill="currentColor"><path d="M12 6H0l6-6z"/></svg>
+</a><script type=module>
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
     mermaid.initialize({ 
         startOnLoad: true,
         theme: 'default' 
     });
-</script>
-
-
-<div style="
-    text-align: center;
-    font-size: 12px;
-    color: var(--secondary);
-    margin-top: 10px;
-    opacity: 0.8;">
-
-    
-    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-
-    
-    <span id="busuanzi_container_site_pv">
-        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
-    </span>
-    &nbsp;·&nbsp;
-    <span id="busuanzi_container_site_uv">
-        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
-    </span>
-</div>
-
-
-<script>
-(function() {
-    var el = document.getElementById('busuanzi_container_page_pv');
-    if (!el) return;
-    var check = setInterval(function() {
-        var val = document.getElementById('busuanzi_value_page_pv');
-        if (val && val.innerText !== '') {
-            el.style.display = 'inline';
-            clearInterval(check);
-        }
-    }, 200);
-    setTimeout(function() { clearInterval(check); }, 10000);
-})();
-</script>
-
-
-<script>
-    let menu = document.getElementById('menu');
-    if (menu) {
-        
-        const scrollPosition = localStorage.getItem("menu-scroll-position");
-        if (scrollPosition) {
-            menu.scrollLeft = parseInt(scrollPosition, 10);
-        }
-        
-        menu.onscroll = function () {
-            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
-        }
-    }
-
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener("click", function (e) {
-            e.preventDefault();
-            var id = this.getAttribute("href").substr(1);
-            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
-                    behavior: "smooth"
-                });
-            } else {
-                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
-            }
-            if (id === "top") {
-                history.replaceState(null, null, " ");
-            } else {
-                history.pushState(null, null, `#${id}`);
-            }
-        });
-    });
-
-</script>
-<script>
-    var mybutton = document.getElementById("top-link");
-    window.onscroll = function () {
-        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
-            mybutton.style.visibility = "visible";
-            mybutton.style.opacity = "1";
-        } else {
-            mybutton.style.visibility = "hidden";
-            mybutton.style.opacity = "0";
-        }
-    };
-
-</script>
-<script>
-    document.getElementById("theme-toggle").addEventListener("click", () => {
-        const html = document.querySelector("html");
-        if (html.dataset.theme === "dark") {
-            html.dataset.theme = 'light';
-            localStorage.setItem("pref-theme", 'light');
-        } else {
-            html.dataset.theme = 'dark';
-            localStorage.setItem("pref-theme", 'dark');
-        }
-    })
-
-</script>
-</body>
-
-</html>
+</script><div style=text-align:center;font-size:12px;color:var(--secondary);margin-top:10px;opacity:.8><script async src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><span id=busuanzi_container_site_pv>总访问 <span id=busuanzi_value_site_pv style=font-weight:700></span> 次
+</span>&nbsp;·&nbsp;
+<span id=busuanzi_container_site_uv>访客 <span id=busuanzi_value_site_uv style=font-weight:700></span> 人</span></div><script>(function(){var e,t=document.getElementById("busuanzi_container_page_pv");if(!t)return;e=setInterval(function(){var n=document.getElementById("busuanzi_value_page_pv");n&&n.innerText!==""&&(t.style.display="inline",clearInterval(e))},200),setTimeout(function(){clearInterval(e)},1e4)})()</script><script>let menu=document.getElementById("menu");if(menu){const e=localStorage.getItem("menu-scroll-position");e&&(menu.scrollLeft=parseInt(e,10)),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}}document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{const e=document.querySelector("html");e.dataset.theme==="dark"?(e.dataset.theme="light",localStorage.setItem("pref-theme","light")):(e.dataset.theme="dark",localStorage.setItem("pref-theme","dark"))})</script></body></html>

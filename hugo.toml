@@ -16,6 +16,7 @@ theme = 'PaperMod'
   ShowWordCount = true
   mermaid = true
   author = "Linger"
+  mainSections = ["posts"] # 只有 posts 出现在归档、首页列表中，bulletin 不会出现
   
   # ------ Profile 模式配置 ------
   [params.profileMode]
@@ -48,6 +49,12 @@ theme = 'PaperMod'
     name = "文章"
     url = "/posts"
     weight = 10
+
+  [[menu.main]]
+    identifier = "bulletin"
+    name = "灵儿情报站"
+    url = "/bulletin"
+    weight = 15
 
   [[menu.main]]
     identifier = "archives"
