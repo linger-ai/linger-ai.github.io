@@ -236,3 +236,9 @@ an Agent made this exact error in the past. **Do not repeat them.**
 
 - **2026-03-26**: Agent 在正文中使用了 H1 标题
   - Fix: 正文中最高使用 ## (H2)，标题来自 front matter 的 title
+
+- **2026-03-26**: lint.sh 使用 `((WARNINGS++))` 在 `set -e` 模式下，当变量从 0 自增时返回值为 0（false），导致脚本提前退出
+  - Fix: 使用 `VAR=$((VAR + 1))` 替代 `((VAR++))`，避免 `set -e` 误杀
+
+- **2026-03-26**: lint.sh 将 `_index.md`（Hugo section 列表页）当作普通文章检查，报出缺少 date、searchHidden 等字段的误报错误
+  - Fix: 在 lint 循环开头跳过 `_index.md` 文件：`[[ "$(basename "$file")" == "_index.md" ]] && continue`
