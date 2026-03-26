@@ -19,14 +19,14 @@ error() {
   local file="$1" line="$2" msg="$3" fix="$4"
   echo -e "${RED}ERROR${NC} ${file}:${line}: ${msg}"
   echo -e "  ${YELLOW}FIX${NC}: ${fix}"
-  ((ERRORS++))
+  ERRORS=$((ERRORS + 1))
 }
 
 warn() {
   local file="$1" line="$2" msg="$3" fix="$4"
   echo -e "${YELLOW}WARN${NC}  ${file}:${line}: ${msg}"
   echo -e "  ${YELLOW}FIX${NC}: ${fix}"
-  ((WARNINGS++))
+  WARNINGS=$((WARNINGS + 1))
 }
 
 # ---------- 确定要检查的文件 ----------
@@ -41,6 +41,9 @@ fi
 
 for file in "${FILES[@]}"; do
   [[ -f "$file" ]] || continue
+
+  # 跳过 Hugo section 列表页 (_index.md)
+  [[ "$(basename "$file")" == "_index.md" ]] && continue
 
   # ======== Front Matter 检查 ========
 
