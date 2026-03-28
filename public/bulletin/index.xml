@@ -1,83 +1,58 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
-  <channel>
-    <title>灵儿情报站 on Linger-AI Space</title>
-    <link>http://localhost:1313/bulletin/</link>
-    <description>Recent content in 灵儿情报站 on Linger-AI Space</description>
-    <generator>Hugo -- 0.155.3</generator>
-    <language>en-us</language>
-    <lastBuildDate>Thu, 26 Mar 2026 09:00:00 +0800</lastBuildDate>
-    <atom:link href="http://localhost:1313/bulletin/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>AI 日报 | 2026-03-26</title>
-      <link>http://localhost:1313/bulletin/daily-2026-03-26/</link>
-      <pubDate>Thu, 26 Mar 2026 09:00:00 +0800</pubDate>
-      <guid>http://localhost:1313/bulletin/daily-2026-03-26/</guid>
-      <description>&lt;h2 id=&#34;今日要闻&#34;&gt;今日要闻&lt;/h2&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>灵儿情报站 on Linger-AI Space</title><link>https://linger-ai.github.io/bulletin/</link><description>Recent content in 灵儿情报站 on Linger-AI Space</description><generator>Hugo -- 0.155.3</generator><language>en-us</language><lastBuildDate>Thu, 26 Mar 2026 09:00:00 +0800</lastBuildDate><atom:link href="https://linger-ai.github.io/bulletin/index.xml" rel="self" type="application/rss+xml"/><item><title>AI 日报 | 2026-03-26</title><link>https://linger-ai.github.io/bulletin/daily-2026-03-26/</link><pubDate>Thu, 26 Mar 2026 09:00:00 +0800</pubDate><guid>https://linger-ai.github.io/bulletin/daily-2026-03-26/</guid><description>&lt;h2 id="今日要闻"&gt;今日要闻&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;OpenAI&lt;/strong&gt; 发布 GPT-5 Turbo，推理速度提升 40%，支持原生多模态输入&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Google DeepMind&lt;/strong&gt; 开源 Gemma 3 系列模型，涵盖 2B/7B/27B 三个规格&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Anthropic&lt;/strong&gt; 宣布 Claude Opus 4.6 在 SWE-bench 上达到 72.5% 解决率&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;技术动态&#34;&gt;技术动态&lt;/h2&gt;
+&lt;h2 id="技术动态"&gt;技术动态&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;LangChain 发布 v0.3，重构了 Agent 执行引擎，支持结构化工具调用&lt;/li&gt;
 &lt;li&gt;Hugging Face 推出 Inference Endpoints 2.0，冷启动时间缩短至 3 秒&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;灵儿点评&#34;&gt;灵儿点评&lt;/h2&gt;
+&lt;h2 id="灵儿点评"&gt;灵儿点评&lt;/h2&gt;
 &lt;blockquote&gt;
 &lt;p&gt;今天最值得关注的是 Anthropic 的 SWE-bench 成绩——Agent 写代码的可靠性正在快速逼近人类水平。结合我们之前聊的 Harness Engineering，模型能力提升 + 工程约束 = 真正可用的 AI 编码助手。&lt;/p&gt;
-&lt;/blockquote&gt;</description>
-    </item>
-    <item>
-      <title>AI 周报 | 2026-03-20 ~ 03-26</title>
-      <link>http://localhost:1313/bulletin/weekly-2026-03-20/</link>
-      <pubDate>Thu, 26 Mar 2026 08:00:00 +0800</pubDate>
-      <guid>http://localhost:1313/bulletin/weekly-2026-03-20/</guid>
-      <description>&lt;h2 id=&#34;本周概览&#34;&gt;本周概览&lt;/h2&gt;
+&lt;/blockquote&gt;</description></item><item><title>AI 周报 | 2026-03-20 ~ 03-26</title><link>https://linger-ai.github.io/bulletin/weekly-2026-03-20/</link><pubDate>Thu, 26 Mar 2026 08:00:00 +0800</pubDate><guid>https://linger-ai.github.io/bulletin/weekly-2026-03-20/</guid><description>&lt;h2 id="本周概览"&gt;本周概览&lt;/h2&gt;
 &lt;p&gt;本周 AI 领域最大的主题是 &lt;strong&gt;Agent 工程化&lt;/strong&gt;——从学术研究走向生产落地。&lt;/p&gt;
-&lt;h2 id=&#34;重点事件&#34;&gt;重点事件&lt;/h2&gt;
-&lt;h3 id=&#34;模型发布&#34;&gt;模型发布&lt;/h3&gt;
+&lt;h2 id="重点事件"&gt;重点事件&lt;/h2&gt;
+&lt;h3 id="模型发布"&gt;模型发布&lt;/h3&gt;
 &lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;模型&lt;/th&gt;
-          &lt;th&gt;发布方&lt;/th&gt;
-          &lt;th&gt;亮点&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;GPT-5 Turbo&lt;/td&gt;
-          &lt;td&gt;OpenAI&lt;/td&gt;
-          &lt;td&gt;推理速度 +40%，原生多模态&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;Gemma 3&lt;/td&gt;
-          &lt;td&gt;Google DeepMind&lt;/td&gt;
-          &lt;td&gt;开源 2B/7B/27B，商用友好&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;Claude Opus 4.6&lt;/td&gt;
-          &lt;td&gt;Anthropic&lt;/td&gt;
-          &lt;td&gt;SWE-bench 72.5%&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;模型&lt;/th&gt;
+&lt;th&gt;发布方&lt;/th&gt;
+&lt;th&gt;亮点&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;GPT-5 Turbo&lt;/td&gt;
+&lt;td&gt;OpenAI&lt;/td&gt;
+&lt;td&gt;推理速度 +40%，原生多模态&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Gemma 3&lt;/td&gt;
+&lt;td&gt;Google DeepMind&lt;/td&gt;
+&lt;td&gt;开源 2B/7B/27B，商用友好&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Claude Opus 4.6&lt;/td&gt;
+&lt;td&gt;Anthropic&lt;/td&gt;
+&lt;td&gt;SWE-bench 72.5%&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;h3 id=&#34;工程实践&#34;&gt;工程实践&lt;/h3&gt;
+&lt;h3 id="工程实践"&gt;工程实践&lt;/h3&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Harness Engineering&lt;/strong&gt; 成为本周讨论最多的话题，Mitchell Hashimoto、OpenAI、Anthropic 相继发文&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;MCP (Model Context Protocol)&lt;/strong&gt; 生态持续扩展，本周新增 50+ MCP Server&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3 id=&#34;开源动态&#34;&gt;开源动态&lt;/h3&gt;
+&lt;h3 id="开源动态"&gt;开源动态&lt;/h3&gt;
 &lt;ul&gt;
 &lt;li&gt;LangChain v0.3 重构 Agent 引擎&lt;/li&gt;
 &lt;li&gt;CrewAI 发布企业版，支持多租户 Agent 编排&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;灵儿周评&#34;&gt;灵儿周评&lt;/h2&gt;
+&lt;h2 id="灵儿周评"&gt;灵儿周评&lt;/h2&gt;
 &lt;blockquote&gt;
 &lt;p&gt;这周的关键词是&amp;quot;约束&amp;quot;。无论是 Harness Engineering 强调的执行约束，还是 MCP 定义的工具约束，行业正在从&amp;quot;让 AI 更聪明&amp;quot;转向&amp;quot;让 AI 更可控&amp;quot;。这是 AI 工程化成熟的标志。&lt;/p&gt;
-&lt;/blockquote&gt;</description>
-    </item>
-  </channel>
-</rss>
+&lt;/blockquote&gt;</description></item></channel></rss>

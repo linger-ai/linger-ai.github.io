@@ -1,13 +1,4 @@
-<!DOCTYPE html>
-<html lang="en" dir="auto" data-theme="auto">
-
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="robots" content="noindex, nofollow">
-<title>DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位 | Linger-AI Space</title>
-<meta name="keywords" content="AI, 技术, DeerFlow">
-<meta name="description" content="
+<!doctype html><html lang=en dir=auto data-theme=auto><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位 | Linger-AI Space</title><meta name=keywords content="AI,技术,DeerFlow"><meta name=description content='
 DeerFlow 源码解析系列目录
 
 导读（本文）：AI Agent 框架的选择与 DeerFlow 的定位
@@ -26,588 +17,81 @@ DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做�
 一、当前 AI Agent 框架的分层
 把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：
 
-基础设施层只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于&quot;Agent 应该长什么样&quot;的意见。你拿到的是一堆积木，怎么搭是你的事。
-编排层是竞争最激烈的区间。CrewAI 用&quot;角色扮演&quot;隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent &#43; Handoff &#43; Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。">
-<meta name="author" content="Linger">
-<link rel="canonical" href="http://localhost:1313/posts/deerflow-00-introduction/">
-<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
-<link rel="icon" href="http://localhost:1313/favicon.ico">
-<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
-<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
-<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
-<meta name="theme-color" content="#2e2e33">
-<meta name="msapplication-TileColor" content="#2e2e33">
-<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/deerflow-00-introduction/">
-<noscript>
-    <style>
-        #theme-toggle,
-        .top-link {
-            display: none;
-        }
+基础设施层只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于"Agent 应该长什么样"的意见。你拿到的是一堆积木，怎么搭是你的事。
+编排层是竞争最激烈的区间。CrewAI 用"角色扮演"隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。'><meta name=author content="Linger"><link rel=canonical href=https://linger-ai.github.io/posts/deerflow-00-introduction/><link crossorigin=anonymous href=/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css integrity="sha256-2jIR5e+Ge/K3X9WmUVz+1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as=style><link rel=icon href=https://linger-ai.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://linger-ai.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://linger-ai.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://linger-ai.github.io/apple-touch-icon.png><link rel=mask-icon href=https://linger-ai.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><link rel=alternate hreflang=en href=https://linger-ai.github.io/posts/deerflow-00-introduction/><noscript><style>#theme-toggle,.top-link{display:none}</style><style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--code-block-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51);color-scheme:dark}.list{background:var(--theme)}.toc{background:var(--entry)}}@media(prefers-color-scheme:light){.list::-webkit-scrollbar-thumb{border-color:var(--code-bg)}}</style></noscript><script>localStorage.getItem("pref-theme")==="dark"?document.querySelector("html").dataset.theme="dark":localStorage.getItem("pref-theme")==="light"?document.querySelector("html").dataset.theme="light":window.matchMedia("(prefers-color-scheme: dark)").matches?document.querySelector("html").dataset.theme="dark":document.querySelector("html").dataset.theme="light"</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-M0R8M4JVEY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-M0R8M4JVEY")}</script><meta property="og:url" content="https://linger-ai.github.io/posts/deerflow-00-introduction/"><meta property="og:site_name" content="Linger-AI Space"><meta property="og:title" content="DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位"><meta property="og:description" content=' DeerFlow 源码解析系列目录
+导读（本文）：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。
+DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。
+一、当前 AI Agent 框架的分层 把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：
+基础设施层只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于"Agent 应该长什么样"的意见。你拿到的是一堆积木，怎么搭是你的事。
+编排层是竞争最激烈的区间。CrewAI 用"角色扮演"隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。'><meta property="og:locale" content="en-us"><meta property="og:type" content="article"><meta property="article:section" content="posts"><meta property="article:published_time" content="2026-03-28T09:00:00+08:00"><meta property="article:modified_time" content="2026-03-28T09:00:00+08:00"><meta property="article:tag" content="AI"><meta property="article:tag" content="技术"><meta property="article:tag" content="DeerFlow"><meta name=twitter:card content="summary"><meta name=twitter:title content="DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位"><meta name=twitter:description content='
+DeerFlow 源码解析系列目录
 
-    </style>
-    <style>
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --theme: rgb(29, 30, 32);
-                --entry: rgb(46, 46, 51);
-                --primary: rgb(218, 218, 219);
-                --secondary: rgb(155, 156, 157);
-                --tertiary: rgb(65, 66, 68);
-                --content: rgb(196, 196, 197);
-                --code-block-bg: rgb(46, 46, 51);
-                --code-bg: rgb(55, 56, 62);
-                --border: rgb(51, 51, 51);
-                color-scheme: dark;
-            }
-
-            .list {
-                background: var(--theme);
-            }
-
-            .toc {
-                background: var(--entry);
-            }
-        }
-
-        @media (prefers-color-scheme: light) {
-            .list::-webkit-scrollbar-thumb {
-                border-color: var(--code-bg);
-            }
-        }
-
-    </style>
-</noscript>
-<script>
-    if (localStorage.getItem("pref-theme") === "dark") {
-        document.querySelector("html").dataset.theme = 'dark';
-    } else if (localStorage.getItem("pref-theme") === "light") {
-       document.querySelector("html").dataset.theme = 'light';
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.querySelector("html").dataset.theme = 'dark';
-    } else {
-        document.querySelector("html").dataset.theme = 'light';
-    }
-
-</script>
-</head>
-<body id="top">
-    <header class="header">
-    <nav class="nav">
-        <div class="logo">
-            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
-            <div class="logo-switches">
-                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
-                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
-                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y1="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <ul id="menu">
-            <li>
-                <a href="http://localhost:1313/posts" title="文章">
-                    <span>文章</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/bulletin" title="灵儿情报站">
-                    <span>灵儿情报站</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/archives" title="归档">
-                    <span>归档</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/tags" title="标签">
-                    <span>标签</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
-                    <span>搜索</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
-</header>
-<main class="main">
-
-<article class="post-single">
-  <header class="post-header">
-    
-    <h1 class="post-title entry-hint-parent">
-      DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位
-    </h1>
-    <div class="post-meta">
-
-<span title='2026-03-28 09:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>774 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
-
-</div>
-  </header> 
-  <div class="post-content"><blockquote>
-<p><strong>DeerFlow 源码解析系列目录</strong></p>
-<ul>
-<li><strong>导读（本文）</strong>：AI Agent 框架的选择与 DeerFlow 的定位</li>
-<li><a href="/posts/deerflow-01-chat-request-lifecycle">第一篇：一个 Chat 请求的完整生命周期</a></li>
-<li><a href="/posts/deerflow-02-prompt-engineering-context">第二篇：系统提示词工程与上下文架构</a></li>
-<li><a href="/posts/deerflow-03-multi-agent-collaboration">第三篇：主从 Agent 协作与安全边界</a></li>
-<li><a href="/posts/deerflow-04-skills-mcp-tools">第四篇：Skills、MCP 与工具生态</a></li>
-<li><a href="/posts/deerflow-05-sandbox-isolation">第五篇：沙箱隔离与代码执行</a></li>
-<li><a href="/posts/deerflow-06-memory-im-channels">第六篇：长期记忆、IM 通道与多端接入</a></li>
-<li><a href="/posts/deerflow-07-harness-engineering">第七篇：Harness Engineering 工程实践</a></li>
-</ul>
-</blockquote>
-<hr>
-<p>2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。</p>
-<p>DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。</p>
-<h2 id="一当前-ai-agent-框架的分层">一、当前 AI Agent 框架的分层<a hidden class="anchor" aria-hidden="true" href="#一当前-ai-agent-框架的分层">#</a></h2>
-<p>把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：</p>
-<p><img alt="image.png" loading="lazy" src="https://chenxqblog-1258795182.cos.ap-guangzhou.myqcloud.com/obsidian/image.png"></p>
-<p><strong>基础设施层</strong>只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于&quot;Agent 应该长什么样&quot;的意见。你拿到的是一堆积木，怎么搭是你的事。</p>
-<p><strong>编排层</strong>是竞争最激烈的区间。CrewAI 用&quot;角色扮演&quot;隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。</p>
-<p><strong>应用层</strong>是直接面向终端用户的完整产品。Claude Code 是终端编程助手的标杆，OpenCode 是 100% 开源的终端编程助手（TypeScript/Bun 编写，支持多模型和 LSP）。DeerFlow 在这一层比较特殊——它既是一个可以直接使用的全栈应用（带 Web UI、IM 集成），又把底层的 Agent 运行时（deerflow-harness）设计成了一个可独立发布的 Python 包。</p>
-<h2 id="二七个框架的正面对比">二、七个框架的正面对比<a hidden class="anchor" aria-hidden="true" href="#二七个框架的正面对比">#</a></h2>
-<h3 id="21-langgraph地基">2.1 LangGraph——地基<a hidden class="anchor" aria-hidden="true" href="#21-langgraph地基">#</a></h3>
-<p>LangGraph 是 DeerFlow 的底层依赖。理解 DeerFlow 绕不开 LangGraph，但 LangGraph 本身的抽象非常低：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># LangGraph 的核心 API</span>
-</span></span><span style="display:flex;"><span>graph <span style="color:#f92672">=</span> StateGraph(MessagesState)
-</span></span><span style="display:flex;"><span>graph<span style="color:#f92672">.</span>add_node(<span style="color:#e6db74">&#34;agent&#34;</span>, call_model)
-</span></span><span style="display:flex;"><span>graph<span style="color:#f92672">.</span>add_node(<span style="color:#e6db74">&#34;tools&#34;</span>, tool_node)
-</span></span><span style="display:flex;"><span>graph<span style="color:#f92672">.</span>add_conditional_edges(<span style="color:#e6db74">&#34;agent&#34;</span>, should_continue)
-</span></span><span style="display:flex;"><span>app <span style="color:#f92672">=</span> graph<span style="color:#f92672">.</span>compile(checkpointer<span style="color:#f92672">=</span>MemorySaver())
-</span></span></code></pre></div><p>你需要自己定义状态 schema、自己写 node 函数、自己实现 conditional edge 逻辑。没有中间件、没有提示词管理、没有沙箱、没有记忆系统。它的定位就是&quot;Agent 运行时的 Kubernetes&quot;——提供编排原语，不提供业务逻辑。</p>
-<p>DeerFlow 在 LangGraph 之上构建了一整套中间件链、提示词动态组装、工具发现、沙箱隔离、记忆系统。这些是 LangGraph 有意不做的事情。</p>
-<h3 id="22-openai-agents-sdk极简主义">2.2 OpenAI Agents SDK——极简主义<a hidden class="anchor" aria-hidden="true" href="#22-openai-agents-sdk极简主义">#</a></h3>
-<p>OpenAI Agents SDK（Swarm 的正式继任者）是另一个极端——用最少的概念覆盖最多的场景：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>agent <span style="color:#f92672">=</span> Agent(
-</span></span><span style="display:flex;"><span>    name<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;Triage&#34;</span>,
-</span></span><span style="display:flex;"><span>    instructions<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;Route the user to the right agent.&#34;</span>,
-</span></span><span style="display:flex;"><span>    handoffs<span style="color:#f92672">=</span>[sales_agent, support_agent],
-</span></span><span style="display:flex;"><span>)
-</span></span><span style="display:flex;"><span>result <span style="color:#f92672">=</span> Runner<span style="color:#f92672">.</span>run_sync(agent, <span style="color:#e6db74">&#34;I want a refund&#34;</span>)
-</span></span></code></pre></div><p>三个核心概念：<code>Agent</code>（带 instructions 和 tools 的 LLM）、<code>Handoff</code>（一个 Agent 把控制权交给另一个）、<code>Runner</code>（执行循环）。没有图、没有状态机、没有 DAG。Agent 之间通过 handoff 链式传递控制权，或者通过 <code>AgentTool</code> 把另一个 Agent 包装成工具调用。</p>
-<p>它的优势是上手成本极低、概念清晰；劣势是缺少 DeerFlow 那种级别的上下文管理（没有摘要中间件、没有 token 预算控制）和隔离机制（没有沙箱、没有主从 Agent 的提示词隔离）。它甚至不带 Web UI，纯粹是一个 Python 库。</p>
-<h3 id="23-crewai角色扮演隐喻">2.3 CrewAI——角色扮演隐喻<a hidden class="anchor" aria-hidden="true" href="#23-crewai角色扮演隐喻">#</a></h3>
-<p>CrewAI 的核心差异化在于&quot;角色扮演&quot;设计。每个 Agent 不只是一个带 tools 的 LLM，还有 role（角色）、goal（目标）和 backstory（背景故事）：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>researcher <span style="color:#f92672">=</span> Agent(
-</span></span><span style="display:flex;"><span>    role<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;Senior Research Analyst&#34;</span>,
-</span></span><span style="display:flex;"><span>    goal<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;Find the latest AI trends&#34;</span>,
-</span></span><span style="display:flex;"><span>    backstory<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;You are an expert analyst with 10 years of experience...&#34;</span>,
-</span></span><span style="display:flex;"><span>)
-</span></span><span style="display:flex;"><span>crew <span style="color:#f92672">=</span> Crew(agents<span style="color:#f92672">=</span>[researcher, writer], tasks<span style="color:#f92672">=</span>[research_task, write_task])
-</span></span><span style="display:flex;"><span>result <span style="color:#f92672">=</span> crew<span style="color:#f92672">.</span>kickoff()
-</span></span></code></pre></div><p>两种执行模式：<code>sequential</code>（按顺序执行）和 <code>hierarchical</code>（自动指派 manager Agent 做任务分配）。2025 年还加入了 <code>Flow</code> 系统，用装饰器（<code>@start</code>、<code>@listen</code>、<code>@router</code>）做事件驱动的精确流程控制。</p>
-<p>CrewAI 在 2026 年初已突破 80k star，DeepLearning.AI 课程和活跃的社区说明它在&quot;上手友好度&quot;上做得很好。但在工程深度上，它缺少 DeerFlow 的中间件链（CrewAI 没有等价物）、沙箱隔离（只能靠外部工具）和 IM 集成。</p>
-<h3 id="24-autogen学术底色">2.4 AutoGen——学术底色<a hidden class="anchor" aria-hidden="true" href="#24-autogen学术底色">#</a></h3>
-<p>AutoGen 出自微软研究院，身上带着明显的学术气质。它有三层 API：</p>
-<ul>
-<li><strong>Core API</strong>：消息传递、事件驱动 Agent、本地/分布式运行时</li>
-<li><strong>AgentChat API</strong>：简化的快速原型层</li>
-<li><strong>Extensions API</strong>：LLM client、代码执行器</li>
-</ul>
-<p>独特之处是<strong>跨语言支持</strong>（Python + .NET + TypeScript）和<strong>分布式运行时</strong>（通过 gRPC）。它的 <code>Magentic-One</code> 是一个参考实现——一个由 5 个 Agent 组成的团队，能做网页浏览、代码执行、文件处理。</p>
-<p>不过 AutoGen 的现状需要注意：微软曾宣布 <a href="https://github.com/microsoft/agent-framework">Microsoft Agent Framework</a> 作为新的方向，但截至 2026 年 3 月，AutoGen 仍在积极开发中（最新更新于 3 月底），两个项目处于并行演进状态。</p>
-<h3 id="25-claude-code产品标杆">2.5 Claude Code——产品标杆<a hidden class="anchor" aria-hidden="true" href="#25-claude-code产品标杆">#</a></h3>
-<p>Claude Code 是一个产品，不是框架。终端 CLI、VS Code 插件、JetBrains 插件、Desktop App、Web 端、移动端、Slack 集成，做到了全端覆盖。</p>
-<p>从架构角度看，Claude Code 有两个值得关注的设计：</p>
-<p><strong>CLAUDE.md</strong>：项目级别的持久化指令文件，每次会话启动时自动读取。DeerFlow 深受这个设计的影响——它的 <code>backend/CLAUDE.md</code> 就是按照 Claude Code 的模式为 AI 助手撰写的架构指导文档。</p>
-<p><strong>MCP（Model Context Protocol）</strong>：Anthropic 推出的开放标准，用于连接外部工具（Google Drive、Jira、Slack 等）。DeerFlow 完整实现了 MCP 客户端，包括 stdio/SSE/HTTP 三种传输协议和 OAuth 令牌流。</p>
-<p>Claude Code 的局限在于<strong>单模型绑定</strong>（只能用 Claude），以及<strong>不可自托管</strong>（Agent 逻辑是闭源的，Agent SDK 提供了编程接口但运行时仍然依赖 Anthropic 的基础设施）。</p>
-<h3 id="26-opencode开源终端编程助手">2.6 OpenCode——开源终端编程助手<a hidden class="anchor" aria-hidden="true" href="#26-opencode开源终端编程助手">#</a></h3>
-<p>OpenCode 是一个 100% 开源的 AI 编程助手，用 TypeScript 编写，基于 Bun 运行时。与 Claude Code 类似，它提供了终端 TUI 界面，但有几个关键差异：</p>
-<ul>
-<li><strong>多模型支持</strong>：不绑定单一供应商，支持 Claude、OpenAI、Google 以及本地模型</li>
-<li><strong>LSP 集成</strong>：直接对接语言服务器获取代码诊断信息，比简单的&quot;读文件 + grep&quot;更精确</li>
-<li><strong>Client/Server 架构</strong>：支持远程驱动，TUI 只是可能的客户端之一</li>
-<li><strong>Plan/Build 双模式</strong>：按 <code>Tab</code> 键在只读分析模式（plan）和完整开发模式（build）之间切换</li>
-</ul>
-<p>OpenCode 也有 Desktop App 版本，在终端体验上投入了大量精力（开发团队包括 neovim 用户和 terminal.shop 的创作者）。</p>
-<h3 id="27-anthropic-claude-agent-sdkclaude-code-的可编程接口">2.7 Anthropic Claude Agent SDK——Claude Code 的可编程接口<a hidden class="anchor" aria-hidden="true" href="#27-anthropic-claude-agent-sdkclaude-code-的可编程接口">#</a></h3>
-<p>Anthropic 在 2025 年中推出了 Claude Agent SDK，与 OpenAI Agents SDK 类似，提供 <code>Agent</code> + <code>Runner</code> 的极简 API，把 Claude Code 的核心能力封装成可编程接口。它与 OpenAI SDK 的主要差异在于深度集成 Anthropic 的模型能力（如 extended thinking、computer use 等），但两者在抽象层级上属于同一类编排层工具。</p>
-<h2 id="三deerflow-到底在做什么不同的事">三、DeerFlow 到底在做什么不同的事<a hidden class="anchor" aria-hidden="true" href="#三deerflow-到底在做什么不同的事">#</a></h2>
-<p>把六个框架摆在一起后，DeerFlow 的定位就清晰了：</p>
-<table>
-  <thead>
-      <tr>
-          <th>维度</th>
-          <th>LangGraph</th>
-          <th>OpenAI/Claude SDK</th>
-          <th>CrewAI</th>
-          <th>AutoGen</th>
-          <th>Claude Code</th>
-          <th>OpenCode</th>
-          <th>DeerFlow</th>
-          <th></th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>抽象层级</td>
-          <td>基础设施</td>
-          <td>编排</td>
-          <td>编排</td>
-          <td>编排</td>
-          <td>应用</td>
-          <td>应用</td>
-          <td><strong>基础设施 + 应用</strong></td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>多 Agent</td>
-          <td>手动组装</td>
-          <td>Handoff</td>
-          <td>Crew</td>
-          <td>Group Chat</td>
-          <td>内置子 Agent</td>
-          <td>子 Agent</td>
-          <td>主从隔离</td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>中间件</td>
-          <td>无</td>
-          <td>无</td>
-          <td>无</td>
-          <td>无</td>
-          <td>Hooks</td>
-          <td>无</td>
-          <td><strong>12 个中间件</strong></td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>沙箱</td>
-          <td>无</td>
-          <td>无</td>
-          <td>无</td>
-          <td>Docker</td>
-          <td>无</td>
-          <td>无</td>
-          <td><strong>Docker/K8s</strong></td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>长期记忆</td>
-          <td>Checkpointer</td>
-          <td>Sessions</td>
-          <td>可选</td>
-          <td>无</td>
-          <td>CLAUDE.md</td>
-          <td>无</td>
-          <td><strong>LLM 提取</strong></td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>提示词管理</td>
-          <td>无</td>
-          <td>静态 instructions</td>
-          <td>静态 backstory</td>
-          <td>无</td>
-          <td>CLAUDE.md</td>
-          <td>静态</td>
-          <td><strong>12 条件动态组装</strong></td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>IM 集成</td>
-          <td>无</td>
-          <td>无</td>
-          <td>无</td>
-          <td>无</td>
-          <td>Slack</td>
-          <td>无</td>
-          <td><strong>飞书/Slack/TG</strong></td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>Web UI</td>
-          <td>LangSmith</td>
-          <td>无</td>
-          <td>Control Plane</td>
-          <td>Studio</td>
-          <td>Desktop/Web</td>
-          <td>Desktop</td>
-          <td><strong>Next.js</strong></td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>模型无关</td>
-          <td>是</td>
-          <td>是</td>
-          <td>是</td>
-          <td>是</td>
-          <td><strong>否</strong></td>
-          <td>是</td>
-          <td>是</td>
-          <td></td>
-      </tr>
-      <tr>
-          <td>可独立部署</td>
-          <td>库</td>
-          <td>库</td>
-          <td>库+CLI</td>
-          <td>库+Studio</td>
-          <td>产品</td>
-          <td>产品</td>
-          <td><strong>全栈应用</strong></td>
-          <td></td>
-      </tr>
-  </tbody>
-</table>
-<p>几个关键差异：</p>
-<p><strong>1. 中间件链</strong>：在调研过的七个框架中，只有 DeerFlow 实现了真正的中间件链。12 个中间件分布在 5 个钩子点（<code>before_agent</code>、<code>after_agent</code>、<code>before_model</code>、<code>after_model</code>、<code>wrap_model_call</code>），覆盖了从线程数据初始化到上下文摘要、从 Plan Mode 到记忆更新的完整生命周期。其他框架要么没有中间件概念（LangGraph、OpenAI/Claude SDK、AutoGen），要么只有简单的 hooks（Claude Code）或装饰器（CrewAI Flow）。</p>
-<p><strong>3. 沙箱即一等公民</strong>：只有 AutoGen 和 DeerFlow 把代码执行沙箱作为一等公民。AutoGen 提供了 Docker 执行器；DeerFlow 在此基础上增加了虚拟路径系统（Agent 看到 <code>/mnt/user-data/</code>，实际映射到宿主机的 per-thread 目录）和 Kubernetes provisioner 支持。</p>
-<p><strong>4. 上下文工程的深度</strong>：DeerFlow 的提示词不是一个静态字符串，而是由 12 个条件 section 动态组装的。记忆注入有 2000 token 的精确预算控制（用 tiktoken 计数），上下文摘要有触发条件和保留策略，工具调用结果有延迟过滤。这种级别的上下文工程在其他框架中没有看到。</p>
-<p><strong>5. IM 通道</strong>：DeerFlow 是唯一一个原生集成了三个 IM 平台（飞书、Slack、Telegram）的 Agent 框架。这不是&quot;加个 Webhook 就行&quot;的集成——飞书通道实现了 Interactive Card 的渐进式更新（创建卡片 → 流式 patch → 完成标记），Slack 做了 Markdown 到 mrkdwn 的格式转换，Telegram 区分了私聊（共享线程）和群聊（独立线程）的会话模型。</p>
-<h2 id="四为什么对-deerflow-做源码解析">四、为什么对 DeerFlow 做源码解析<a hidden class="anchor" aria-hidden="true" href="#四为什么对-deerflow-做源码解析">#</a></h2>
-<p>选择 DeerFlow 做深度源码解析，不是因为它在所有维度上都&quot;最好&quot;。每个框架都有自己的甜蜜点：</p>
-<ul>
-<li>如果你需要最大控制力，用 <strong>LangGraph</strong></li>
-<li>如果你需要最快上手，用 <strong>OpenAI Agents SDK</strong> 或 <strong>Claude Agent SDK</strong></li>
-<li>如果你需要角色化的多 Agent 团队，用 <strong>CrewAI</strong></li>
-<li>如果你需要最好的编程助手体验，用 <strong>Claude Code</strong></li>
-<li>如果你需要开源的终端编程助手，用 <strong>OpenCode</strong></li>
-</ul>
-<p>选择 DeerFlow 是因为它在一个代码库里同时解决了多个工程问题，每个问题都值得拆开看：</p>
-<ul>
-<li>怎么在 LangGraph 之上构建中间件链？（第一篇、第三篇）</li>
-<li>怎么做 token 级别的上下文管理？（第二篇）</li>
-<li>怎么隔离主 Agent 和子 Agent 的提示词、工具和历史？（第三篇）</li>
-<li>怎么实现 Skills 的三层渐进加载和 MCP 的完整集成？（第四篇）</li>
-<li>怎么设计虚拟路径系统来统一本地和 Docker 沙箱？（第五篇）</li>
-<li>怎么用 LLM 做长期记忆提取，怎么在三个 IM 平台上做消息总线？（第六篇）</li>
-<li>怎么用 CLAUDE.md 指导 AI Agent 协作，怎么用 AST 测试强制架构边界？（第七篇）</li>
-</ul>
-<p>这些问题不是 DeerFlow 独有的——任何认真构建 AI Agent 系统的团队都会遇到。DeerFlow 的源码提供了一套具体的、可审视的答案。</p>
-<h2 id="五系列文章路线">五、系列文章路线<a hidden class="anchor" aria-hidden="true" href="#五系列文章路线">#</a></h2>
-<p>整个系列 7 篇文章按&quot;先总后分、先主后辅&quot;的顺序组织：</p>
-<div class="mermaid">
-  graph TD
-    A0["导读（本文）<br>框架对比与定位"]
-    A1["第一篇<br>Chat 请求完整生命周期"]
-    A2["第二篇<br>提示词工程与上下文架构"]
-    A3["第三篇<br>主从 Agent 协作与安全边界"]
-    A4["第四篇<br>Skills、MCP 与工具生态"]
-    A5["第五篇<br>沙箱隔离与代码执行"]
-    A6["第六篇<br>长期记忆与 IM 通道"]
-    A7["第七篇<br>Harness Engineering 工程实践"]
-
-    A0 --> A1
-    A1 --> A2
-    A1 --> A3
-    A3 --> A4
-    A3 --> A5
-    A1 --> A6
-    A1 --> A7
-
-    style A0 fill:#e1f5fe
-    style A1 fill:#fff3e0
-    style A7 fill:#f3e5f5
-</div>
-<table>
-  <thead>
-      <tr>
-          <th>篇目</th>
-          <th>主题</th>
-          <th>对应工程问题</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><a href="/posts/deerflow-01-chat-request-lifecycle">第一篇</a></td>
-          <td>请求生命周期</td>
-          <td>一个请求从浏览器到 AI 回复经过了什么</td>
-      </tr>
-      <tr>
-          <td><a href="/posts/deerflow-02-prompt-engineering-context">第二篇</a></td>
-          <td>提示词工程</td>
-          <td>系统提示词怎么做到动态组装和 token 预算控制</td>
-      </tr>
-      <tr>
-          <td><a href="/posts/deerflow-03-multi-agent-collaboration">第三篇</a></td>
-          <td>主从 Agent</td>
-          <td>主 Agent 和子 Agent 的隔离怎么做，死循环怎么防</td>
-      </tr>
-      <tr>
-          <td><a href="/posts/deerflow-04-skills-mcp-tools">第四篇</a></td>
-          <td>工具生态</td>
-          <td>Skills 怎么加载，MCP 怎么集成，工具怎么分组</td>
-      </tr>
-      <tr>
-          <td><a href="/posts/deerflow-05-sandbox-isolation">第五篇</a></td>
-          <td>沙箱隔离</td>
-          <td>本地和 Docker 执行怎么统一，路径安全怎么保证</td>
-      </tr>
-      <tr>
-          <td><a href="/posts/deerflow-06-memory-im-channels">第六篇</a></td>
-          <td>记忆与 IM</td>
-          <td>长期记忆怎么用 LLM 提取，三个 IM 平台怎么对接</td>
-      </tr>
-      <tr>
-          <td><a href="/posts/deerflow-07-harness-engineering">第七篇</a></td>
-          <td>工程实践</td>
-          <td>CLAUDE.md 怎么写，架构边界怎么强制，CI 怎么配</td>
-      </tr>
-  </tbody>
-</table>
-<p><strong>第一篇是入口</strong>，走一遍完整请求路径，建立全局认知。<strong>第二到六篇各自独立</strong>，放大某个子系统的实现细节，可以按兴趣跳读。<strong>第七篇是收尾</strong>，从具体代码中跳出来，评估整个项目的工程实践水平。</p>
-<p>每篇文章都带有 <code>file:line</code> 级别的源码引用，指向 DeerFlow 的 <a href="https://github.com/bytedance/deer-flow">GitHub 仓库</a>中的具体代码位置。建议对照源码阅读。</p>
-<hr>
-<blockquote>
-<p><strong>下一篇</strong>：<a href="/posts/deerflow-01-chat-request-lifecycle">DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期</a>——从用户按下 Enter 开始，追踪请求经过的四个服务、中间件链、Agent Loop，直到 AI 回复出现在屏幕上。</p>
-</blockquote>
+导读（本文）：AI Agent 框架的选择与 DeerFlow 的定位
+第一篇：一个 Chat 请求的完整生命周期
+第二篇：系统提示词工程与上下文架构
+第三篇：主从 Agent 协作与安全边界
+第四篇：Skills、MCP 与工具生态
+第五篇：沙箱隔离与代码执行
+第六篇：长期记忆、IM 通道与多端接入
+第七篇：Harness Engineering 工程实践
 
 
-  </div>
 
-  <footer class="post-footer">
-    <ul class="post-tags">
-      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
-      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
-      <li><a href="http://localhost:1313/tags/deerflow/">DeerFlow</a></li>
-    </ul>
-  </footer>
-</article>
-    </main>
-    
-<footer class="footer">
-        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
+2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。
+DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。
+一、当前 AI Agent 框架的分层
+把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：
 
-    <span>
-        Powered by
-        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
-        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
-    </span>
-</footer>
-<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
-        <path d="M12 6H0l6-6z" />
-    </svg>
-</a>
-<script type="module">
+基础设施层只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于"Agent 应该长什么样"的意见。你拿到的是一堆积木，怎么搭是你的事。
+编排层是竞争最激烈的区间。CrewAI 用"角色扮演"隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。'><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://linger-ai.github.io/posts/"},{"@type":"ListItem","position":2,"name":"DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位","item":"https://linger-ai.github.io/posts/deerflow-00-introduction/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位","name":"DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位","description":" DeerFlow 源码解析系列目录\n导读（本文）：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。\nDeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。\n一、当前 AI Agent 框架的分层 把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：\n基础设施层只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于\u0026quot;Agent 应该长什么样\u0026quot;的意见。你拿到的是一堆积木，怎么搭是你的事。\n编排层是竞争最激烈的区间。CrewAI 用\u0026quot;角色扮演\u0026quot;隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。\n","keywords":["AI","技术","DeerFlow"],"articleBody":" DeerFlow 源码解析系列目录\n导读（本文）：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。\nDeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。\n一、当前 AI Agent 框架的分层 把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：\n基础设施层只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于\"Agent 应该长什么样\"的意见。你拿到的是一堆积木，怎么搭是你的事。\n编排层是竞争最激烈的区间。CrewAI 用\"角色扮演\"隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。\n应用层是直接面向终端用户的完整产品。Claude Code 是终端编程助手的标杆，OpenCode 是 100% 开源的终端编程助手（TypeScript/Bun 编写，支持多模型和 LSP）。DeerFlow 在这一层比较特殊——它既是一个可以直接使用的全栈应用（带 Web UI、IM 集成），又把底层的 Agent 运行时（deerflow-harness）设计成了一个可独立发布的 Python 包。\n二、七个框架的正面对比 2.1 LangGraph——地基 LangGraph 是 DeerFlow 的底层依赖。理解 DeerFlow 绕不开 LangGraph，但 LangGraph 本身的抽象非常低：\n# LangGraph 的核心 API graph = StateGraph(MessagesState) graph.add_node(\"agent\", call_model) graph.add_node(\"tools\", tool_node) graph.add_conditional_edges(\"agent\", should_continue) app = graph.compile(checkpointer=MemorySaver()) 你需要自己定义状态 schema、自己写 node 函数、自己实现 conditional edge 逻辑。没有中间件、没有提示词管理、没有沙箱、没有记忆系统。它的定位就是\"Agent 运行时的 Kubernetes\"——提供编排原语，不提供业务逻辑。\nDeerFlow 在 LangGraph 之上构建了一整套中间件链、提示词动态组装、工具发现、沙箱隔离、记忆系统。这些是 LangGraph 有意不做的事情。\n2.2 OpenAI Agents SDK——极简主义 OpenAI Agents SDK（Swarm 的正式继任者）是另一个极端——用最少的概念覆盖最多的场景：\nagent = Agent( name=\"Triage\", instructions=\"Route the user to the right agent.\", handoffs=[sales_agent, support_agent], ) result = Runner.run_sync(agent, \"I want a refund\") 三个核心概念：Agent（带 instructions 和 tools 的 LLM）、Handoff（一个 Agent 把控制权交给另一个）、Runner（执行循环）。没有图、没有状态机、没有 DAG。Agent 之间通过 handoff 链式传递控制权，或者通过 AgentTool 把另一个 Agent 包装成工具调用。\n它的优势是上手成本极低、概念清晰；劣势是缺少 DeerFlow 那种级别的上下文管理（没有摘要中间件、没有 token 预算控制）和隔离机制（没有沙箱、没有主从 Agent 的提示词隔离）。它甚至不带 Web UI，纯粹是一个 Python 库。\n2.3 CrewAI——角色扮演隐喻 CrewAI 的核心差异化在于\"角色扮演\"设计。每个 Agent 不只是一个带 tools 的 LLM，还有 role（角色）、goal（目标）和 backstory（背景故事）：\nresearcher = Agent( role=\"Senior Research Analyst\", goal=\"Find the latest AI trends\", backstory=\"You are an expert analyst with 10 years of experience...\", ) crew = Crew(agents=[researcher, writer], tasks=[research_task, write_task]) result = crew.kickoff() 两种执行模式：sequential（按顺序执行）和 hierarchical（自动指派 manager Agent 做任务分配）。2025 年还加入了 Flow 系统，用装饰器（@start、@listen、@router）做事件驱动的精确流程控制。\nCrewAI 在 2026 年初已突破 80k star，DeepLearning.AI 课程和活跃的社区说明它在\"上手友好度\"上做得很好。但在工程深度上，它缺少 DeerFlow 的中间件链（CrewAI 没有等价物）、沙箱隔离（只能靠外部工具）和 IM 集成。\n2.4 AutoGen——学术底色 AutoGen 出自微软研究院，身上带着明显的学术气质。它有三层 API：\nCore API：消息传递、事件驱动 Agent、本地/分布式运行时 AgentChat API：简化的快速原型层 Extensions API：LLM client、代码执行器 独特之处是跨语言支持（Python + .NET + TypeScript）和分布式运行时（通过 gRPC）。它的 Magentic-One 是一个参考实现——一个由 5 个 Agent 组成的团队，能做网页浏览、代码执行、文件处理。\n不过 AutoGen 的现状需要注意：微软曾宣布 Microsoft Agent Framework 作为新的方向，但截至 2026 年 3 月，AutoGen 仍在积极开发中（最新更新于 3 月底），两个项目处于并行演进状态。\n2.5 Claude Code——产品标杆 Claude Code 是一个产品，不是框架。终端 CLI、VS Code 插件、JetBrains 插件、Desktop App、Web 端、移动端、Slack 集成，做到了全端覆盖。\n从架构角度看，Claude Code 有两个值得关注的设计：\nCLAUDE.md：项目级别的持久化指令文件，每次会话启动时自动读取。DeerFlow 深受这个设计的影响——它的 backend/CLAUDE.md 就是按照 Claude Code 的模式为 AI 助手撰写的架构指导文档。\nMCP（Model Context Protocol）：Anthropic 推出的开放标准，用于连接外部工具（Google Drive、Jira、Slack 等）。DeerFlow 完整实现了 MCP 客户端，包括 stdio/SSE/HTTP 三种传输协议和 OAuth 令牌流。\nClaude Code 的局限在于单模型绑定（只能用 Claude），以及不可自托管（Agent 逻辑是闭源的，Agent SDK 提供了编程接口但运行时仍然依赖 Anthropic 的基础设施）。\n2.6 OpenCode——开源终端编程助手 OpenCode 是一个 100% 开源的 AI 编程助手，用 TypeScript 编写，基于 Bun 运行时。与 Claude Code 类似，它提供了终端 TUI 界面，但有几个关键差异：\n多模型支持：不绑定单一供应商，支持 Claude、OpenAI、Google 以及本地模型 LSP 集成：直接对接语言服务器获取代码诊断信息，比简单的\"读文件 + grep\"更精确 Client/Server 架构：支持远程驱动，TUI 只是可能的客户端之一 Plan/Build 双模式：按 Tab 键在只读分析模式（plan）和完整开发模式（build）之间切换 OpenCode 也有 Desktop App 版本，在终端体验上投入了大量精力（开发团队包括 neovim 用户和 terminal.shop 的创作者）。\n2.7 Anthropic Claude Agent SDK——Claude Code 的可编程接口 Anthropic 在 2025 年中推出了 Claude Agent SDK，与 OpenAI Agents SDK 类似，提供 Agent + Runner 的极简 API，把 Claude Code 的核心能力封装成可编程接口。它与 OpenAI SDK 的主要差异在于深度集成 Anthropic 的模型能力（如 extended thinking、computer use 等），但两者在抽象层级上属于同一类编排层工具。\n三、DeerFlow 到底在做什么不同的事 把六个框架摆在一起后，DeerFlow 的定位就清晰了：\n维度 LangGraph OpenAI/Claude SDK CrewAI AutoGen Claude Code OpenCode DeerFlow 抽象层级 基础设施 编排 编排 编排 应用 应用 基础设施 + 应用 多 Agent 手动组装 Handoff Crew Group Chat 内置子 Agent 子 Agent 主从隔离 中间件 无 无 无 无 Hooks 无 12 个中间件 沙箱 无 无 无 Docker 无 无 Docker/K8s 长期记忆 Checkpointer Sessions 可选 无 CLAUDE.md 无 LLM 提取 提示词管理 无 静态 instructions 静态 backstory 无 CLAUDE.md 静态 12 条件动态组装 IM 集成 无 无 无 无 Slack 无 飞书/Slack/TG Web UI LangSmith 无 Control Plane Studio Desktop/Web Desktop Next.js 模型无关 是 是 是 是 否 是 是 可独立部署 库 库 库+CLI 库+Studio 产品 产品 全栈应用 几个关键差异：\n1. 中间件链：在调研过的七个框架中，只有 DeerFlow 实现了真正的中间件链。12 个中间件分布在 5 个钩子点（before_agent、after_agent、before_model、after_model、wrap_model_call），覆盖了从线程数据初始化到上下文摘要、从 Plan Mode 到记忆更新的完整生命周期。其他框架要么没有中间件概念（LangGraph、OpenAI/Claude SDK、AutoGen），要么只有简单的 hooks（Claude Code）或装饰器（CrewAI Flow）。\n3. 沙箱即一等公民：只有 AutoGen 和 DeerFlow 把代码执行沙箱作为一等公民。AutoGen 提供了 Docker 执行器；DeerFlow 在此基础上增加了虚拟路径系统（Agent 看到 /mnt/user-data/，实际映射到宿主机的 per-thread 目录）和 Kubernetes provisioner 支持。\n4. 上下文工程的深度：DeerFlow 的提示词不是一个静态字符串，而是由 12 个条件 section 动态组装的。记忆注入有 2000 token 的精确预算控制（用 tiktoken 计数），上下文摘要有触发条件和保留策略，工具调用结果有延迟过滤。这种级别的上下文工程在其他框架中没有看到。\n5. IM 通道：DeerFlow 是唯一一个原生集成了三个 IM 平台（飞书、Slack、Telegram）的 Agent 框架。这不是\"加个 Webhook 就行\"的集成——飞书通道实现了 Interactive Card 的渐进式更新（创建卡片 → 流式 patch → 完成标记），Slack 做了 Markdown 到 mrkdwn 的格式转换，Telegram 区分了私聊（共享线程）和群聊（独立线程）的会话模型。\n四、为什么对 DeerFlow 做源码解析 选择 DeerFlow 做深度源码解析，不是因为它在所有维度上都\"最好\"。每个框架都有自己的甜蜜点：\n如果你需要最大控制力，用 LangGraph 如果你需要最快上手，用 OpenAI Agents SDK 或 Claude Agent SDK 如果你需要角色化的多 Agent 团队，用 CrewAI 如果你需要最好的编程助手体验，用 Claude Code 如果你需要开源的终端编程助手，用 OpenCode 选择 DeerFlow 是因为它在一个代码库里同时解决了多个工程问题，每个问题都值得拆开看：\n怎么在 LangGraph 之上构建中间件链？（第一篇、第三篇） 怎么做 token 级别的上下文管理？（第二篇） 怎么隔离主 Agent 和子 Agent 的提示词、工具和历史？（第三篇） 怎么实现 Skills 的三层渐进加载和 MCP 的完整集成？（第四篇） 怎么设计虚拟路径系统来统一本地和 Docker 沙箱？（第五篇） 怎么用 LLM 做长期记忆提取，怎么在三个 IM 平台上做消息总线？（第六篇） 怎么用 CLAUDE.md 指导 AI Agent 协作，怎么用 AST 测试强制架构边界？（第七篇） 这些问题不是 DeerFlow 独有的——任何认真构建 AI Agent 系统的团队都会遇到。DeerFlow 的源码提供了一套具体的、可审视的答案。\n五、系列文章路线 整个系列 7 篇文章按\"先总后分、先主后辅\"的顺序组织：\ngraph TD A0[\"导读（本文）\n框架对比与定位\"] A1[\"第一篇\nChat 请求完整生命周期\"] A2[\"第二篇\n提示词工程与上下文架构\"] A3[\"第三篇\n主从 Agent 协作与安全边界\"] A4[\"第四篇\nSkills、MCP 与工具生态\"] A5[\"第五篇\n沙箱隔离与代码执行\"] A6[\"第六篇\n长期记忆与 IM 通道\"] A7[\"第七篇\nHarness Engineering 工程实践\"] A0 --\u003e A1 A1 --\u003e A2 A1 --\u003e A3 A3 --\u003e A4 A3 --\u003e A5 A1 --\u003e A6 A1 --\u003e A7 style A0 fill:#e1f5fe style A1 fill:#fff3e0 style A7 fill:#f3e5f5 篇目 主题 对应工程问题 第一篇 请求生命周期 一个请求从浏览器到 AI 回复经过了什么 第二篇 提示词工程 系统提示词怎么做到动态组装和 token 预算控制 第三篇 主从 Agent 主 Agent 和子 Agent 的隔离怎么做，死循环怎么防 第四篇 工具生态 Skills 怎么加载，MCP 怎么集成，工具怎么分组 第五篇 沙箱隔离 本地和 Docker 执行怎么统一，路径安全怎么保证 第六篇 记忆与 IM 长期记忆怎么用 LLM 提取，三个 IM 平台怎么对接 第七篇 工程实践 CLAUDE.md 怎么写，架构边界怎么强制，CI 怎么配 第一篇是入口，走一遍完整请求路径，建立全局认知。第二到六篇各自独立，放大某个子系统的实现细节，可以按兴趣跳读。第七篇是收尾，从具体代码中跳出来，评估整个项目的工程实践水平。\n每篇文章都带有 file:line 级别的源码引用，指向 DeerFlow 的 GitHub 仓库中的具体代码位置。建议对照源码阅读。\n下一篇：DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期——从用户按下 Enter 开始，追踪请求经过的四个服务、中间件链、Agent Loop，直到 AI 回复出现在屏幕上。\n","wordCount":"774","inLanguage":"en","datePublished":"2026-03-28T09:00:00+08:00","dateModified":"2026-03-28T09:00:00+08:00","author":{"@type":"Person","name":"Linger"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://linger-ai.github.io/posts/deerflow-00-introduction/"},"publisher":{"@type":"Organization","name":"Linger-AI Space","logo":{"@type":"ImageObject","url":"https://linger-ai.github.io/favicon.ico"}}}</script></head><body id=top><header class=header><nav class=nav><div class=logo><a href=https://linger-ai.github.io/ accesskey=h title="Linger-AI Space (Alt + H)">Linger-AI Space</a><div class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)" aria-label="Toggle theme">
+<svg id="moon" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+<svg id="sun" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></div></div><ul id=menu><li><a href=https://linger-ai.github.io/posts title=文章><span>文章</span></a></li><li><a href=https://linger-ai.github.io/bulletin title=灵儿情报站><span>灵儿情报站</span></a></li><li><a href=https://linger-ai.github.io/archives title=归档><span>归档</span></a></li><li><a href=https://linger-ai.github.io/tags title=标签><span>标签</span></a></li><li><a href=https://linger-ai.github.io/search title="搜索 (Alt + /)" accesskey=/><span>搜索</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><h1 class="post-title entry-hint-parent">DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位</h1><div class=post-meta><span title='2026-03-28 09:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>774 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></div></header><div class=post-content><blockquote><p><strong>DeerFlow 源码解析系列目录</strong></p><ul><li><strong>导读（本文）</strong>：AI Agent 框架的选择与 DeerFlow 的定位</li><li><a href=/posts/deerflow-01-chat-request-lifecycle>第一篇：一个 Chat 请求的完整生命周期</a></li><li><a href=/posts/deerflow-02-prompt-engineering-context>第二篇：系统提示词工程与上下文架构</a></li><li><a href=/posts/deerflow-03-multi-agent-collaboration>第三篇：主从 Agent 协作与安全边界</a></li><li><a href=/posts/deerflow-04-skills-mcp-tools>第四篇：Skills、MCP 与工具生态</a></li><li><a href=/posts/deerflow-05-sandbox-isolation>第五篇：沙箱隔离与代码执行</a></li><li><a href=/posts/deerflow-06-memory-im-channels>第六篇：长期记忆、IM 通道与多端接入</a></li><li><a href=/posts/deerflow-07-harness-engineering>第七篇：Harness Engineering 工程实践</a></li></ul></blockquote><hr><p>2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。</p><p>DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。</p><h2 id=一当前-ai-agent-框架的分层>一、当前 AI Agent 框架的分层<a hidden class=anchor aria-hidden=true href=#一当前-ai-agent-框架的分层>#</a></h2><p>把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：</p><p><img alt=image.png loading=lazy src=https://chenxqblog-1258795182.cos.ap-guangzhou.myqcloud.com/obsidian/image.png></p><p><strong>基础设施层</strong>只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于"Agent 应该长什么样"的意见。你拿到的是一堆积木，怎么搭是你的事。</p><p><strong>编排层</strong>是竞争最激烈的区间。CrewAI 用"角色扮演"隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。</p><p><strong>应用层</strong>是直接面向终端用户的完整产品。Claude Code 是终端编程助手的标杆，OpenCode 是 100% 开源的终端编程助手（TypeScript/Bun 编写，支持多模型和 LSP）。DeerFlow 在这一层比较特殊——它既是一个可以直接使用的全栈应用（带 Web UI、IM 集成），又把底层的 Agent 运行时（deerflow-harness）设计成了一个可独立发布的 Python 包。</p><h2 id=二七个框架的正面对比>二、七个框架的正面对比<a hidden class=anchor aria-hidden=true href=#二七个框架的正面对比>#</a></h2><h3 id=21-langgraph地基>2.1 LangGraph——地基<a hidden class=anchor aria-hidden=true href=#21-langgraph地基>#</a></h3><p>LangGraph 是 DeerFlow 的底层依赖。理解 DeerFlow 绕不开 LangGraph，但 LangGraph 本身的抽象非常低：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#75715e># LangGraph 的核心 API</span>
+</span></span><span style=display:flex><span>graph <span style=color:#f92672>=</span> StateGraph(MessagesState)
+</span></span><span style=display:flex><span>graph<span style=color:#f92672>.</span>add_node(<span style=color:#e6db74>&#34;agent&#34;</span>, call_model)
+</span></span><span style=display:flex><span>graph<span style=color:#f92672>.</span>add_node(<span style=color:#e6db74>&#34;tools&#34;</span>, tool_node)
+</span></span><span style=display:flex><span>graph<span style=color:#f92672>.</span>add_conditional_edges(<span style=color:#e6db74>&#34;agent&#34;</span>, should_continue)
+</span></span><span style=display:flex><span>app <span style=color:#f92672>=</span> graph<span style=color:#f92672>.</span>compile(checkpointer<span style=color:#f92672>=</span>MemorySaver())
+</span></span></code></pre></div><p>你需要自己定义状态 schema、自己写 node 函数、自己实现 conditional edge 逻辑。没有中间件、没有提示词管理、没有沙箱、没有记忆系统。它的定位就是"Agent 运行时的 Kubernetes"——提供编排原语，不提供业务逻辑。</p><p>DeerFlow 在 LangGraph 之上构建了一整套中间件链、提示词动态组装、工具发现、沙箱隔离、记忆系统。这些是 LangGraph 有意不做的事情。</p><h3 id=22-openai-agents-sdk极简主义>2.2 OpenAI Agents SDK——极简主义<a hidden class=anchor aria-hidden=true href=#22-openai-agents-sdk极简主义>#</a></h3><p>OpenAI Agents SDK（Swarm 的正式继任者）是另一个极端——用最少的概念覆盖最多的场景：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span>agent <span style=color:#f92672>=</span> Agent(
+</span></span><span style=display:flex><span>    name<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;Triage&#34;</span>,
+</span></span><span style=display:flex><span>    instructions<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;Route the user to the right agent.&#34;</span>,
+</span></span><span style=display:flex><span>    handoffs<span style=color:#f92672>=</span>[sales_agent, support_agent],
+</span></span><span style=display:flex><span>)
+</span></span><span style=display:flex><span>result <span style=color:#f92672>=</span> Runner<span style=color:#f92672>.</span>run_sync(agent, <span style=color:#e6db74>&#34;I want a refund&#34;</span>)
+</span></span></code></pre></div><p>三个核心概念：<code>Agent</code>（带 instructions 和 tools 的 LLM）、<code>Handoff</code>（一个 Agent 把控制权交给另一个）、<code>Runner</code>（执行循环）。没有图、没有状态机、没有 DAG。Agent 之间通过 handoff 链式传递控制权，或者通过 <code>AgentTool</code> 把另一个 Agent 包装成工具调用。</p><p>它的优势是上手成本极低、概念清晰；劣势是缺少 DeerFlow 那种级别的上下文管理（没有摘要中间件、没有 token 预算控制）和隔离机制（没有沙箱、没有主从 Agent 的提示词隔离）。它甚至不带 Web UI，纯粹是一个 Python 库。</p><h3 id=23-crewai角色扮演隐喻>2.3 CrewAI——角色扮演隐喻<a hidden class=anchor aria-hidden=true href=#23-crewai角色扮演隐喻>#</a></h3><p>CrewAI 的核心差异化在于"角色扮演"设计。每个 Agent 不只是一个带 tools 的 LLM，还有 role（角色）、goal（目标）和 backstory（背景故事）：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span>researcher <span style=color:#f92672>=</span> Agent(
+</span></span><span style=display:flex><span>    role<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;Senior Research Analyst&#34;</span>,
+</span></span><span style=display:flex><span>    goal<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;Find the latest AI trends&#34;</span>,
+</span></span><span style=display:flex><span>    backstory<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;You are an expert analyst with 10 years of experience...&#34;</span>,
+</span></span><span style=display:flex><span>)
+</span></span><span style=display:flex><span>crew <span style=color:#f92672>=</span> Crew(agents<span style=color:#f92672>=</span>[researcher, writer], tasks<span style=color:#f92672>=</span>[research_task, write_task])
+</span></span><span style=display:flex><span>result <span style=color:#f92672>=</span> crew<span style=color:#f92672>.</span>kickoff()
+</span></span></code></pre></div><p>两种执行模式：<code>sequential</code>（按顺序执行）和 <code>hierarchical</code>（自动指派 manager Agent 做任务分配）。2025 年还加入了 <code>Flow</code> 系统，用装饰器（<code>@start</code>、<code>@listen</code>、<code>@router</code>）做事件驱动的精确流程控制。</p><p>CrewAI 在 2026 年初已突破 80k star，DeepLearning.AI 课程和活跃的社区说明它在"上手友好度"上做得很好。但在工程深度上，它缺少 DeerFlow 的中间件链（CrewAI 没有等价物）、沙箱隔离（只能靠外部工具）和 IM 集成。</p><h3 id=24-autogen学术底色>2.4 AutoGen——学术底色<a hidden class=anchor aria-hidden=true href=#24-autogen学术底色>#</a></h3><p>AutoGen 出自微软研究院，身上带着明显的学术气质。它有三层 API：</p><ul><li><strong>Core API</strong>：消息传递、事件驱动 Agent、本地/分布式运行时</li><li><strong>AgentChat API</strong>：简化的快速原型层</li><li><strong>Extensions API</strong>：LLM client、代码执行器</li></ul><p>独特之处是<strong>跨语言支持</strong>（Python + .NET + TypeScript）和<strong>分布式运行时</strong>（通过 gRPC）。它的 <code>Magentic-One</code> 是一个参考实现——一个由 5 个 Agent 组成的团队，能做网页浏览、代码执行、文件处理。</p><p>不过 AutoGen 的现状需要注意：微软曾宣布 <a href=https://github.com/microsoft/agent-framework>Microsoft Agent Framework</a> 作为新的方向，但截至 2026 年 3 月，AutoGen 仍在积极开发中（最新更新于 3 月底），两个项目处于并行演进状态。</p><h3 id=25-claude-code产品标杆>2.5 Claude Code——产品标杆<a hidden class=anchor aria-hidden=true href=#25-claude-code产品标杆>#</a></h3><p>Claude Code 是一个产品，不是框架。终端 CLI、VS Code 插件、JetBrains 插件、Desktop App、Web 端、移动端、Slack 集成，做到了全端覆盖。</p><p>从架构角度看，Claude Code 有两个值得关注的设计：</p><p><strong>CLAUDE.md</strong>：项目级别的持久化指令文件，每次会话启动时自动读取。DeerFlow 深受这个设计的影响——它的 <code>backend/CLAUDE.md</code> 就是按照 Claude Code 的模式为 AI 助手撰写的架构指导文档。</p><p><strong>MCP（Model Context Protocol）</strong>：Anthropic 推出的开放标准，用于连接外部工具（Google Drive、Jira、Slack 等）。DeerFlow 完整实现了 MCP 客户端，包括 stdio/SSE/HTTP 三种传输协议和 OAuth 令牌流。</p><p>Claude Code 的局限在于<strong>单模型绑定</strong>（只能用 Claude），以及<strong>不可自托管</strong>（Agent 逻辑是闭源的，Agent SDK 提供了编程接口但运行时仍然依赖 Anthropic 的基础设施）。</p><h3 id=26-opencode开源终端编程助手>2.6 OpenCode——开源终端编程助手<a hidden class=anchor aria-hidden=true href=#26-opencode开源终端编程助手>#</a></h3><p>OpenCode 是一个 100% 开源的 AI 编程助手，用 TypeScript 编写，基于 Bun 运行时。与 Claude Code 类似，它提供了终端 TUI 界面，但有几个关键差异：</p><ul><li><strong>多模型支持</strong>：不绑定单一供应商，支持 Claude、OpenAI、Google 以及本地模型</li><li><strong>LSP 集成</strong>：直接对接语言服务器获取代码诊断信息，比简单的"读文件 + grep"更精确</li><li><strong>Client/Server 架构</strong>：支持远程驱动，TUI 只是可能的客户端之一</li><li><strong>Plan/Build 双模式</strong>：按 <code>Tab</code> 键在只读分析模式（plan）和完整开发模式（build）之间切换</li></ul><p>OpenCode 也有 Desktop App 版本，在终端体验上投入了大量精力（开发团队包括 neovim 用户和 terminal.shop 的创作者）。</p><h3 id=27-anthropic-claude-agent-sdkclaude-code-的可编程接口>2.7 Anthropic Claude Agent SDK——Claude Code 的可编程接口<a hidden class=anchor aria-hidden=true href=#27-anthropic-claude-agent-sdkclaude-code-的可编程接口>#</a></h3><p>Anthropic 在 2025 年中推出了 Claude Agent SDK，与 OpenAI Agents SDK 类似，提供 <code>Agent</code> + <code>Runner</code> 的极简 API，把 Claude Code 的核心能力封装成可编程接口。它与 OpenAI SDK 的主要差异在于深度集成 Anthropic 的模型能力（如 extended thinking、computer use 等），但两者在抽象层级上属于同一类编排层工具。</p><h2 id=三deerflow-到底在做什么不同的事>三、DeerFlow 到底在做什么不同的事<a hidden class=anchor aria-hidden=true href=#三deerflow-到底在做什么不同的事>#</a></h2><p>把六个框架摆在一起后，DeerFlow 的定位就清晰了：</p><table><thead><tr><th>维度</th><th>LangGraph</th><th>OpenAI/Claude SDK</th><th>CrewAI</th><th>AutoGen</th><th>Claude Code</th><th>OpenCode</th><th>DeerFlow</th><th></th></tr></thead><tbody><tr><td>抽象层级</td><td>基础设施</td><td>编排</td><td>编排</td><td>编排</td><td>应用</td><td>应用</td><td><strong>基础设施 + 应用</strong></td><td></td></tr><tr><td>多 Agent</td><td>手动组装</td><td>Handoff</td><td>Crew</td><td>Group Chat</td><td>内置子 Agent</td><td>子 Agent</td><td>主从隔离</td><td></td></tr><tr><td>中间件</td><td>无</td><td>无</td><td>无</td><td>无</td><td>Hooks</td><td>无</td><td><strong>12 个中间件</strong></td><td></td></tr><tr><td>沙箱</td><td>无</td><td>无</td><td>无</td><td>Docker</td><td>无</td><td>无</td><td><strong>Docker/K8s</strong></td><td></td></tr><tr><td>长期记忆</td><td>Checkpointer</td><td>Sessions</td><td>可选</td><td>无</td><td>CLAUDE.md</td><td>无</td><td><strong>LLM 提取</strong></td><td></td></tr><tr><td>提示词管理</td><td>无</td><td>静态 instructions</td><td>静态 backstory</td><td>无</td><td>CLAUDE.md</td><td>静态</td><td><strong>12 条件动态组装</strong></td><td></td></tr><tr><td>IM 集成</td><td>无</td><td>无</td><td>无</td><td>无</td><td>Slack</td><td>无</td><td><strong>飞书/Slack/TG</strong></td><td></td></tr><tr><td>Web UI</td><td>LangSmith</td><td>无</td><td>Control Plane</td><td>Studio</td><td>Desktop/Web</td><td>Desktop</td><td><strong>Next.js</strong></td><td></td></tr><tr><td>模型无关</td><td>是</td><td>是</td><td>是</td><td>是</td><td><strong>否</strong></td><td>是</td><td>是</td><td></td></tr><tr><td>可独立部署</td><td>库</td><td>库</td><td>库+CLI</td><td>库+Studio</td><td>产品</td><td>产品</td><td><strong>全栈应用</strong></td><td></td></tr></tbody></table><p>几个关键差异：</p><p><strong>1. 中间件链</strong>：在调研过的七个框架中，只有 DeerFlow 实现了真正的中间件链。12 个中间件分布在 5 个钩子点（<code>before_agent</code>、<code>after_agent</code>、<code>before_model</code>、<code>after_model</code>、<code>wrap_model_call</code>），覆盖了从线程数据初始化到上下文摘要、从 Plan Mode 到记忆更新的完整生命周期。其他框架要么没有中间件概念（LangGraph、OpenAI/Claude SDK、AutoGen），要么只有简单的 hooks（Claude Code）或装饰器（CrewAI Flow）。</p><p><strong>3. 沙箱即一等公民</strong>：只有 AutoGen 和 DeerFlow 把代码执行沙箱作为一等公民。AutoGen 提供了 Docker 执行器；DeerFlow 在此基础上增加了虚拟路径系统（Agent 看到 <code>/mnt/user-data/</code>，实际映射到宿主机的 per-thread 目录）和 Kubernetes provisioner 支持。</p><p><strong>4. 上下文工程的深度</strong>：DeerFlow 的提示词不是一个静态字符串，而是由 12 个条件 section 动态组装的。记忆注入有 2000 token 的精确预算控制（用 tiktoken 计数），上下文摘要有触发条件和保留策略，工具调用结果有延迟过滤。这种级别的上下文工程在其他框架中没有看到。</p><p><strong>5. IM 通道</strong>：DeerFlow 是唯一一个原生集成了三个 IM 平台（飞书、Slack、Telegram）的 Agent 框架。这不是"加个 Webhook 就行"的集成——飞书通道实现了 Interactive Card 的渐进式更新（创建卡片 → 流式 patch → 完成标记），Slack 做了 Markdown 到 mrkdwn 的格式转换，Telegram 区分了私聊（共享线程）和群聊（独立线程）的会话模型。</p><h2 id=四为什么对-deerflow-做源码解析>四、为什么对 DeerFlow 做源码解析<a hidden class=anchor aria-hidden=true href=#四为什么对-deerflow-做源码解析>#</a></h2><p>选择 DeerFlow 做深度源码解析，不是因为它在所有维度上都"最好"。每个框架都有自己的甜蜜点：</p><ul><li>如果你需要最大控制力，用 <strong>LangGraph</strong></li><li>如果你需要最快上手，用 <strong>OpenAI Agents SDK</strong> 或 <strong>Claude Agent SDK</strong></li><li>如果你需要角色化的多 Agent 团队，用 <strong>CrewAI</strong></li><li>如果你需要最好的编程助手体验，用 <strong>Claude Code</strong></li><li>如果你需要开源的终端编程助手，用 <strong>OpenCode</strong></li></ul><p>选择 DeerFlow 是因为它在一个代码库里同时解决了多个工程问题，每个问题都值得拆开看：</p><ul><li>怎么在 LangGraph 之上构建中间件链？（第一篇、第三篇）</li><li>怎么做 token 级别的上下文管理？（第二篇）</li><li>怎么隔离主 Agent 和子 Agent 的提示词、工具和历史？（第三篇）</li><li>怎么实现 Skills 的三层渐进加载和 MCP 的完整集成？（第四篇）</li><li>怎么设计虚拟路径系统来统一本地和 Docker 沙箱？（第五篇）</li><li>怎么用 LLM 做长期记忆提取，怎么在三个 IM 平台上做消息总线？（第六篇）</li><li>怎么用 CLAUDE.md 指导 AI Agent 协作，怎么用 AST 测试强制架构边界？（第七篇）</li></ul><p>这些问题不是 DeerFlow 独有的——任何认真构建 AI Agent 系统的团队都会遇到。DeerFlow 的源码提供了一套具体的、可审视的答案。</p><h2 id=五系列文章路线>五、系列文章路线<a hidden class=anchor aria-hidden=true href=#五系列文章路线>#</a></h2><p>整个系列 7 篇文章按"先总后分、先主后辅"的顺序组织：</p><div class=mermaid>graph TD
+A0["导读（本文）<br>框架对比与定位"]
+A1["第一篇<br>Chat 请求完整生命周期"]
+A2["第二篇<br>提示词工程与上下文架构"]
+A3["第三篇<br>主从 Agent 协作与安全边界"]
+A4["第四篇<br>Skills、MCP 与工具生态"]
+A5["第五篇<br>沙箱隔离与代码执行"]
+A6["第六篇<br>长期记忆与 IM 通道"]
+A7["第七篇<br>Harness Engineering 工程实践"]
+A0 --> A1
+A1 --> A2
+A1 --> A3
+A3 --> A4
+A3 --> A5
+A1 --> A6
+A1 --> A7
+style A0 fill:#e1f5fe
+style A1 fill:#fff3e0
+style A7 fill:#f3e5f5</div><table><thead><tr><th>篇目</th><th>主题</th><th>对应工程问题</th></tr></thead><tbody><tr><td><a href=/posts/deerflow-01-chat-request-lifecycle>第一篇</a></td><td>请求生命周期</td><td>一个请求从浏览器到 AI 回复经过了什么</td></tr><tr><td><a href=/posts/deerflow-02-prompt-engineering-context>第二篇</a></td><td>提示词工程</td><td>系统提示词怎么做到动态组装和 token 预算控制</td></tr><tr><td><a href=/posts/deerflow-03-multi-agent-collaboration>第三篇</a></td><td>主从 Agent</td><td>主 Agent 和子 Agent 的隔离怎么做，死循环怎么防</td></tr><tr><td><a href=/posts/deerflow-04-skills-mcp-tools>第四篇</a></td><td>工具生态</td><td>Skills 怎么加载，MCP 怎么集成，工具怎么分组</td></tr><tr><td><a href=/posts/deerflow-05-sandbox-isolation>第五篇</a></td><td>沙箱隔离</td><td>本地和 Docker 执行怎么统一，路径安全怎么保证</td></tr><tr><td><a href=/posts/deerflow-06-memory-im-channels>第六篇</a></td><td>记忆与 IM</td><td>长期记忆怎么用 LLM 提取，三个 IM 平台怎么对接</td></tr><tr><td><a href=/posts/deerflow-07-harness-engineering>第七篇</a></td><td>工程实践</td><td>CLAUDE.md 怎么写，架构边界怎么强制，CI 怎么配</td></tr></tbody></table><p><strong>第一篇是入口</strong>，走一遍完整请求路径，建立全局认知。<strong>第二到六篇各自独立</strong>，放大某个子系统的实现细节，可以按兴趣跳读。<strong>第七篇是收尾</strong>，从具体代码中跳出来，评估整个项目的工程实践水平。</p><p>每篇文章都带有 <code>file:line</code> 级别的源码引用，指向 DeerFlow 的 <a href=https://github.com/bytedance/deer-flow>GitHub 仓库</a>中的具体代码位置。建议对照源码阅读。</p><hr><blockquote><p><strong>下一篇</strong>：<a href=/posts/deerflow-01-chat-request-lifecycle>DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期</a>——从用户按下 Enter 开始，追踪请求经过的四个服务、中间件链、Agent Loop，直到 AI 回复出现在屏幕上。</p></blockquote></div><footer class=post-footer><ul class=post-tags><li><a href=https://linger-ai.github.io/tags/ai/>AI</a></li><li><a href=https://linger-ai.github.io/tags/%E6%8A%80%E6%9C%AF/>技术</a></li><li><a href=https://linger-ai.github.io/tags/deerflow/>DeerFlow</a></li></ul></footer></article></main><footer class=footer><span>&copy; 2026 <a href=https://linger-ai.github.io/>Linger-AI Space</a></span> ·
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+<a href=https://github.com/adityatelange/hugo-PaperMod/ rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg viewBox="0 0 12 6" fill="currentColor"><path d="M12 6H0l6-6z"/></svg>
+</a><script type=module>
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
     mermaid.initialize({ 
         startOnLoad: true,
         theme: 'default' 
     });
-</script>
-
-
-<div style="
-    text-align: center;
-    font-size: 12px;
-    color: var(--secondary);
-    margin-top: 10px;
-    opacity: 0.8;">
-
-    
-    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-
-    
-    <span id="busuanzi_container_site_pv">
-        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
-    </span>
-    &nbsp;·&nbsp;
-    <span id="busuanzi_container_site_uv">
-        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
-    </span>
-</div>
-
-
-<script>
-(function() {
-    var el = document.getElementById('busuanzi_container_page_pv');
-    if (!el) return;
-    var check = setInterval(function() {
-        var val = document.getElementById('busuanzi_value_page_pv');
-        if (val && val.innerText !== '') {
-            el.style.display = 'inline';
-            clearInterval(check);
-        }
-    }, 200);
-    setTimeout(function() { clearInterval(check); }, 10000);
-})();
-</script>
-
-
-<script>
-    let menu = document.getElementById('menu');
-    if (menu) {
-        
-        const scrollPosition = localStorage.getItem("menu-scroll-position");
-        if (scrollPosition) {
-            menu.scrollLeft = parseInt(scrollPosition, 10);
-        }
-        
-        menu.onscroll = function () {
-            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
-        }
-    }
-
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener("click", function (e) {
-            e.preventDefault();
-            var id = this.getAttribute("href").substr(1);
-            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
-                    behavior: "smooth"
-                });
-            } else {
-                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
-            }
-            if (id === "top") {
-                history.replaceState(null, null, " ");
-            } else {
-                history.pushState(null, null, `#${id}`);
-            }
-        });
-    });
-
-</script>
-<script>
-    var mybutton = document.getElementById("top-link");
-    window.onscroll = function () {
-        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
-            mybutton.style.visibility = "visible";
-            mybutton.style.opacity = "1";
-        } else {
-            mybutton.style.visibility = "hidden";
-            mybutton.style.opacity = "0";
-        }
-    };
-
-</script>
-<script>
-    document.getElementById("theme-toggle").addEventListener("click", () => {
-        const html = document.querySelector("html");
-        if (html.dataset.theme === "dark") {
-            html.dataset.theme = 'light';
-            localStorage.setItem("pref-theme", 'light');
-        } else {
-            html.dataset.theme = 'dark';
-            localStorage.setItem("pref-theme", 'dark');
-        }
-    })
-
-</script>
-</body>
-
-</html>
+</script><div style=text-align:center;font-size:12px;color:var(--secondary);margin-top:10px;opacity:.8><script async src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><span id=busuanzi_container_site_pv>总访问 <span id=busuanzi_value_site_pv style=font-weight:700></span> 次
+</span>&nbsp;·&nbsp;
+<span id=busuanzi_container_site_uv>访客 <span id=busuanzi_value_site_uv style=font-weight:700></span> 人</span></div><script>(function(){var n,s,o,t=document.getElementById("busuanzi_container_page_pv");if(!t)return;function e(){var e=document.getElementById("busuanzi_value_page_pv");return!!(e&&e.innerText&&e.innerText!=="0"&&e.innerText!=="")&&(t.style.display="inline",!0)}if(e())return;n=0,s=setInterval(function(){if(n++,e())clearInterval(s);else if(n>50){clearInterval(s);var o=document.getElementById("busuanzi_value_page_pv");o&&(o.innerText="0",t.style.display="inline")}},200),window.busuanzi?e():(o=document.querySelector('script[src*="busuanzi"]'),o&&o.addEventListener("load",e))})()</script><script>let menu=document.getElementById("menu");if(menu){const e=localStorage.getItem("menu-scroll-position");e&&(menu.scrollLeft=parseInt(e,10)),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}}document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{const e=document.querySelector("html");e.dataset.theme==="dark"?(e.dataset.theme="light",localStorage.setItem("pref-theme","light")):(e.dataset.theme="dark",localStorage.setItem("pref-theme","dark"))})</script></body></html>

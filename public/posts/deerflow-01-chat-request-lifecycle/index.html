@@ -1,13 +1,4 @@
-<!DOCTYPE html>
-<html lang="en" dir="auto" data-theme="auto">
-
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="robots" content="noindex, nofollow">
-<title>DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期 | Linger-AI Space</title>
-<meta name="keywords" content="AI, 技术, DeerFlow">
-<meta name="description" content="
+<!doctype html><html lang=en dir=auto data-theme=auto><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期 | Linger-AI Space</title><meta name=keywords content="AI,技术,DeerFlow"><meta name=description content='
 DeerFlow 源码解析系列目录
 
 导读：AI Agent 框架的选择与 DeerFlow 的定位
@@ -21,375 +12,169 @@ DeerFlow 源码解析系列目录
 
 
 
-DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph &#43; FastAPI &#43; Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
+DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
 第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？
 四个服务，各司其职
 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：
 
-一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&quot;管理侧&quot;的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。
+一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些"管理侧"的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。
 阶段一：前端发起请求
 用户按下 Enter
 入口在 ChatPage 组件。用户提交消息后，handleSubmit 把消息转交给 sendMessage：
 // frontend/src/app/workspace/chats/[thread_id]/page.tsx:64
 const handleSubmit = useCallback(
-  (message: PromptInputMessage) =&gt; {
+  (message: PromptInputMessage) => {
     void sendMessage(threadId, message);
   },
   [sendMessage, threadId],
 );
-sendMessage 来自 useThreadStream 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 useStream。">
-<meta name="author" content="Linger">
-<link rel="canonical" href="http://localhost:1313/posts/deerflow-01-chat-request-lifecycle/">
-<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
-<link rel="icon" href="http://localhost:1313/favicon.ico">
-<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
-<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
-<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
-<meta name="theme-color" content="#2e2e33">
-<meta name="msapplication-TileColor" content="#2e2e33">
-<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/deerflow-01-chat-request-lifecycle/">
-<noscript>
-    <style>
-        #theme-toggle,
-        .top-link {
-            display: none;
-        }
+sendMessage 来自 useThreadStream 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 useStream。'><meta name=author content="Linger"><link rel=canonical href=https://linger-ai.github.io/posts/deerflow-01-chat-request-lifecycle/><link crossorigin=anonymous href=/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css integrity="sha256-2jIR5e+Ge/K3X9WmUVz+1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as=style><link rel=icon href=https://linger-ai.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://linger-ai.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://linger-ai.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://linger-ai.github.io/apple-touch-icon.png><link rel=mask-icon href=https://linger-ai.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><link rel=alternate hreflang=en href=https://linger-ai.github.io/posts/deerflow-01-chat-request-lifecycle/><noscript><style>#theme-toggle,.top-link{display:none}</style><style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--code-block-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51);color-scheme:dark}.list{background:var(--theme)}.toc{background:var(--entry)}}@media(prefers-color-scheme:light){.list::-webkit-scrollbar-thumb{border-color:var(--code-bg)}}</style></noscript><script>localStorage.getItem("pref-theme")==="dark"?document.querySelector("html").dataset.theme="dark":localStorage.getItem("pref-theme")==="light"?document.querySelector("html").dataset.theme="light":window.matchMedia("(prefers-color-scheme: dark)").matches?document.querySelector("html").dataset.theme="dark":document.querySelector("html").dataset.theme="light"</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-M0R8M4JVEY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-M0R8M4JVEY")}</script><meta property="og:url" content="https://linger-ai.github.io/posts/deerflow-01-chat-request-lifecycle/"><meta property="og:site_name" content="Linger-AI Space"><meta property="og:title" content="DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期"><meta property="og:description" content=' DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇（本文）：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
+第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？
+四个服务，各司其职 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：
+一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些"管理侧"的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。
+阶段一：前端发起请求 用户按下 Enter 入口在 ChatPage 组件。用户提交消息后，handleSubmit 把消息转交给 sendMessage：
+// frontend/src/app/workspace/chats/[thread_id]/page.tsx:64 const handleSubmit = useCallback( (message: PromptInputMessage) => { void sendMessage(threadId, message); }, [sendMessage, threadId], ); sendMessage 来自 useThreadStream 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 useStream。'><meta property="og:locale" content="en-us"><meta property="og:type" content="article"><meta property="article:section" content="posts"><meta property="article:published_time" content="2026-03-28T10:00:00+08:00"><meta property="article:modified_time" content="2026-03-28T10:00:00+08:00"><meta property="article:tag" content="AI"><meta property="article:tag" content="技术"><meta property="article:tag" content="DeerFlow"><meta name=twitter:card content="summary"><meta name=twitter:title content="DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期"><meta name=twitter:description content='
+DeerFlow 源码解析系列目录
 
-    </style>
-    <style>
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --theme: rgb(29, 30, 32);
-                --entry: rgb(46, 46, 51);
-                --primary: rgb(218, 218, 219);
-                --secondary: rgb(155, 156, 157);
-                --tertiary: rgb(65, 66, 68);
-                --content: rgb(196, 196, 197);
-                --code-block-bg: rgb(46, 46, 51);
-                --code-bg: rgb(55, 56, 62);
-                --border: rgb(51, 51, 51);
-                color-scheme: dark;
-            }
+导读：AI Agent 框架的选择与 DeerFlow 的定位
+第一篇（本文）：一个 Chat 请求的完整生命周期
+第二篇：系统提示词工程与上下文架构
+第三篇：主从 Agent 协作与安全边界
+第四篇：Skills、MCP 与工具生态
+第五篇：沙箱隔离与代码执行
+第六篇：长期记忆、IM 通道与多端接入
+第七篇：Harness Engineering 工程实践
 
-            .list {
-                background: var(--theme);
-            }
 
-            .toc {
-                background: var(--entry);
-            }
-        }
 
-        @media (prefers-color-scheme: light) {
-            .list::-webkit-scrollbar-thumb {
-                border-color: var(--code-bg);
-            }
-        }
+DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
+第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？
+四个服务，各司其职
+DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：
 
-    </style>
-</noscript>
-<script>
-    if (localStorage.getItem("pref-theme") === "dark") {
-        document.querySelector("html").dataset.theme = 'dark';
-    } else if (localStorage.getItem("pref-theme") === "light") {
-       document.querySelector("html").dataset.theme = 'light';
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.querySelector("html").dataset.theme = 'dark';
-    } else {
-        document.querySelector("html").dataset.theme = 'light';
-    }
-
-</script>
-</head>
-<body id="top">
-    <header class="header">
-    <nav class="nav">
-        <div class="logo">
-            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
-            <div class="logo-switches">
-                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
-                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
-                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y1="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <ul id="menu">
-            <li>
-                <a href="http://localhost:1313/posts" title="文章">
-                    <span>文章</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/bulletin" title="灵儿情报站">
-                    <span>灵儿情报站</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/archives" title="归档">
-                    <span>归档</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/tags" title="标签">
-                    <span>标签</span>
-                </a>
-            </li>
-            <li>
-                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
-                    <span>搜索</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
-</header>
-<main class="main">
-
-<article class="post-single">
-  <header class="post-header">
-    
-    <h1 class="post-title entry-hint-parent">
-      DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期
-    </h1>
-    <div class="post-meta">
-
-<span title='2026-03-28 10:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1069 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
-
-</div>
-  </header> 
-  <div class="post-content"><blockquote>
-<p><strong>DeerFlow 源码解析系列目录</strong></p>
-<ul>
-<li><a href="/posts/deerflow-00-introduction">导读：AI Agent 框架的选择与 DeerFlow 的定位</a></li>
-<li><strong>第一篇（本文）</strong>：一个 Chat 请求的完整生命周期</li>
-<li><a href="/posts/deerflow-02-prompt-engineering-context">第二篇：系统提示词工程与上下文架构</a></li>
-<li><a href="/posts/deerflow-03-multi-agent-collaboration">第三篇：主从 Agent 协作与安全边界</a></li>
-<li><a href="/posts/deerflow-04-skills-mcp-tools">第四篇：Skills、MCP 与工具生态</a></li>
-<li><a href="/posts/deerflow-05-sandbox-isolation">第五篇：沙箱隔离与代码执行</a></li>
-<li><a href="/posts/deerflow-06-memory-im-channels">第六篇：长期记忆、IM 通道与多端接入</a></li>
-<li><a href="/posts/deerflow-07-harness-engineering">第七篇：Harness Engineering 工程实践</a></li>
-</ul>
-</blockquote>
-<hr>
-<p>DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。</p>
-<p>第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？</p>
-<h2 id="四个服务各司其职">四个服务，各司其职<a hidden class="anchor" aria-hidden="true" href="#四个服务各司其职">#</a></h2>
-<p>DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：</p>
-<p><img alt="dac8cca4cbf99a8cbcdd48.png" loading="lazy" src="https://chenxqblog-1258795182.cos.ap-guangzhou.myqcloud.com/obsidian/dac8cca4cbf99a8cbcdd48.png"></p>
-<p>一个容易产生误解的地方是：<strong>Chat 的流式传输不经过 Gateway</strong>。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&quot;管理侧&quot;的 API。Chat 消息直接走 <code>nginx → LangGraph Server</code>，Gateway 完全不参与。</p>
-<h2 id="阶段一前端发起请求">阶段一：前端发起请求<a hidden class="anchor" aria-hidden="true" href="#阶段一前端发起请求">#</a></h2>
-<h3 id="用户按下-enter">用户按下 Enter<a hidden class="anchor" aria-hidden="true" href="#用户按下-enter">#</a></h3>
-<p>入口在 <code>ChatPage</code> 组件。用户提交消息后，<code>handleSubmit</code> 把消息转交给 <code>sendMessage</code>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-tsx" data-lang="tsx"><span style="display:flex;"><span><span style="color:#75715e">// frontend/src/app/workspace/chats/[thread_id]/page.tsx:64
-</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">handleSubmit</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">useCallback</span>(
-</span></span><span style="display:flex;"><span>  (<span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">PromptInputMessage</span>) <span style="color:#f92672">=&gt;</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">sendMessage</span>(<span style="color:#a6e22e">threadId</span>, <span style="color:#a6e22e">message</span>);
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  [<span style="color:#a6e22e">sendMessage</span>, <span style="color:#a6e22e">threadId</span>],
-</span></span><span style="display:flex;"><span>);
-</span></span></code></pre></div><p><code>sendMessage</code> 来自 <code>useThreadStream</code> 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 <code>useStream</code>。</p>
-<h3 id="建立-sse-流">建立 SSE 流<a hidden class="anchor" aria-hidden="true" href="#建立-sse-流">#</a></h3>
-<p><code>useStream</code> 的配置值得仔细看：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#75715e">// frontend/src/core/threads/hooks.ts:113
-</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">thread</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">useStream</span>&lt;<span style="color:#f92672">AgentThreadState</span>&gt;({
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">client</span>: <span style="color:#66d9ef">getAPIClient</span>(),          <span style="color:#75715e">// LangGraph SDK 客户端（单例）
-</span></span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">assistantId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;lead_agent&#34;</span>,       <span style="color:#75715e">// 对应后端 langgraph.json 中的 graph 名
-</span></span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">threadId</span>: <span style="color:#66d9ef">onStreamThreadId</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">reconnectOnMount</span>: <span style="color:#66d9ef">true</span>,          <span style="color:#75715e">// 页面刷新后自动重连
-</span></span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">fetchStateHistory</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">limit</span>: <span style="color:#66d9ef">1</span> }, <span style="color:#75715e">// 重连时拉取最新状态
-</span></span></span><span style="display:flex;"><span>  <span style="color:#75715e">// ...事件回调（下面展开）
-</span></span></span><span style="display:flex;"><span>});
-</span></span></code></pre></div><p>当用户发消息时，<code>thread.submit()</code> 被调用。它发出一个 <strong>POST 请求</strong>，核心 payload 长这样：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#75715e">// frontend/src/core/threads/hooks.ts:347
-</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">await</span> <span style="color:#a6e22e">thread</span>.<span style="color:#a6e22e">submit</span>(
-</span></span><span style="display:flex;"><span>  {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">messages</span><span style="color:#f92672">:</span> [{
-</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;human&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">content</span><span style="color:#f92672">:</span> [{ <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;text&#34;</span>, <span style="color:#a6e22e">text</span> }],
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">additional_kwargs</span>: <span style="color:#66d9ef">filesForSubmit.length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">?</span> { <span style="color:#a6e22e">files</span>: <span style="color:#66d9ef">filesForSubmit</span> } <span style="color:#f92672">:</span> {},
-</span></span><span style="display:flex;"><span>    }],
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>  {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">threadId</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">streamSubgraphs</span>: <span style="color:#66d9ef">true</span>,    <span style="color:#75715e">// 接收子 Agent 的流式事件
-</span></span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">streamResumable</span>: <span style="color:#66d9ef">true</span>,    <span style="color:#75715e">// 断线可重连
-</span></span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">config</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">recursion_limit</span>: <span style="color:#66d9ef">1000</span> },
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">context</span><span style="color:#f92672">:</span> {
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">thinking_enabled</span>: <span style="color:#66d9ef">context.mode</span> <span style="color:#f92672">!==</span> <span style="color:#e6db74">&#34;flash&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">is_plan_mode</span>: <span style="color:#66d9ef">context.mode</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#34;pro&#34;</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">mode</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#34;ultra&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">subagent_enabled</span>: <span style="color:#66d9ef">context.mode</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#34;ultra&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">reasoning_effort</span><span style="color:#f92672">:</span> <span style="color:#75715e">/* ... */</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">thread_id</span>: <span style="color:#66d9ef">threadId</span>,
-</span></span><span style="display:flex;"><span>    },
-</span></span><span style="display:flex;"><span>  },
-</span></span><span style="display:flex;"><span>);
-</span></span></code></pre></div><p>注意 <code>context</code> 里的四个标志位。它们来自 UI 上的模式选择（Flash / Thinking / Pro / Ultra），直接决定了后端 Agent 的行为：是否开启深度思考、是否启用计划模式、是否允许委派子 Agent。</p>
-<h3 id="流式协议">流式协议<a hidden class="anchor" aria-hidden="true" href="#流式协议">#</a></h3>
-<p>DeerFlow 不使用浏览器原生的 <code>EventSource</code>（它只支持 GET），而是用 <strong><code>fetch()</code> POST + ReadableStream</strong> 来解析 SSE 协议。LangGraph SDK 内部实现了 <code>BytesLineDecoder</code> 和 <code>SSEDecoder</code> 两个 TransformStream，把字节流拆成 <code>{ event, data, id }</code> 结构。</p>
-<p>断线重连的机制是：SDK 把 <code>run_id</code> 存在 <code>sessionStorage</code> 中。如果浏览器刷新或网络中断，下次会通过 <code>GET /runs/{run_id}/join</code> 重新接入同一个运行中的 Agent 会话。</p>
-<h3 id="流经-nginx">流经 nginx<a hidden class="anchor" aria-hidden="true" href="#流经-nginx">#</a></h3>
-<p>LangGraph SDK 客户端的 <code>apiUrl</code> 默认指向 <code>{origin}/api/langgraph</code>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#75715e">// frontend/src/core/config/index.ts:28
-</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span>window.<span style="color:#a6e22e">location</span>.<span style="color:#a6e22e">origin</span><span style="color:#e6db74">}</span><span style="color:#e6db74">/api/langgraph`</span>;
-</span></span></code></pre></div><p>nginx 收到请求后，去掉 <code>/api/langgraph/</code> 前缀，转发到 LangGraph Server：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#75715e"># docker/nginx/nginx.conf:57
-</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">location</span> <span style="color:#e6db74">/api/langgraph/</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">rewrite</span> <span style="color:#e6db74">^/api/langgraph/(.*)</span> <span style="color:#e6db74">/</span>$1 <span style="color:#e6db74">break</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_pass</span> <span style="color:#e6db74">http://langgraph</span>;   <span style="color:#75715e"># upstream langgraph -&gt; :2024
-</span></span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># SSE 必需：关闭缓冲，支持分块传输
-</span></span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_buffering</span> <span style="color:#66d9ef">off</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_cache</span> <span style="color:#66d9ef">off</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">X-Accel-Buffering</span> <span style="color:#e6db74">no</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">chunked_transfer_encoding</span> <span style="color:#66d9ef">on</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 长连接超时 10 分钟
-</span></span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_connect_timeout</span> <span style="color:#e6db74">600s</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_send_timeout</span> <span style="color:#e6db74">600s</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_read_timeout</span> <span style="color:#e6db74">600s</span>;
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这段配置有两个要点：<code>proxy_buffering off</code> 确保 SSE 事件能即时到达浏览器（否则 nginx 会攒一批再发），600 秒超时给长时间运行的 Agent 留出足够时间。</p>
-<h2 id="阶段二langgraph-server-构建-agent">阶段二：LangGraph Server 构建 Agent<a hidden class="anchor" aria-hidden="true" href="#阶段二langgraph-server-构建-agent">#</a></h2>
-<p>LangGraph Server 收到 <code>/threads/{id}/runs/stream</code> 请求后，根据 <code>assistant_id</code> 查找对应的 graph factory：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#75715e">// backend/langgraph.json
-</span></span></span><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;graphs&#34;</span>: {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;lead_agent&#34;</span>: <span style="color:#e6db74">&#34;deerflow.agents:make_lead_agent&#34;</span>
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><code>&quot;lead_agent&quot;</code> 映射到 <code>make_lead_agent()</code> 这个工厂函数。它做四件事：</p>
-<h3 id="1-解析运行时参数">1. 解析运行时参数<a hidden class="anchor" aria-hidden="true" href="#1-解析运行时参数">#</a></h3>
-<p>前端传入的 <code>context</code> 会被放进 <code>config[&quot;configurable&quot;]</code>，工厂函数从中读取所有运行时标志：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/lead_agent/agent.py:273</span>
-</span></span><span style="display:flex;"><span>cfg <span style="color:#f92672">=</span> config<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;configurable&#34;</span>, {})
-</span></span><span style="display:flex;"><span>thinking_enabled <span style="color:#f92672">=</span> cfg<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;thinking_enabled&#34;</span>, <span style="color:#66d9ef">True</span>)
-</span></span><span style="display:flex;"><span>is_plan_mode <span style="color:#f92672">=</span> cfg<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;is_plan_mode&#34;</span>, <span style="color:#66d9ef">False</span>)
-</span></span><span style="display:flex;"><span>subagent_enabled <span style="color:#f92672">=</span> cfg<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;subagent_enabled&#34;</span>, <span style="color:#66d9ef">False</span>)
-</span></span><span style="display:flex;"><span>reasoning_effort <span style="color:#f92672">=</span> cfg<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;reasoning_effort&#34;</span>, <span style="color:#66d9ef">None</span>)
-</span></span><span style="display:flex;"><span>model_name <span style="color:#f92672">=</span> cfg<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;model_name&#34;</span>) <span style="color:#f92672">or</span> cfg<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;model&#34;</span>)
-</span></span></code></pre></div><h3 id="2-聚合工具集">2. 聚合工具集<a hidden class="anchor" aria-hidden="true" href="#2-聚合工具集">#</a></h3>
-<p><code>get_available_tools()</code> 把四个来源的工具合并成一个列表：</p>
-<ul>
-<li>配置文件中定义的工具（web_search、bash、read_file 等）</li>
-<li>内置工具（present_file、ask_clarification、view_image）</li>
-<li>MCP 工具（从外部 MCP server 加载）</li>
-<li>子 Agent 工具（<code>task</code>，仅当 <code>subagent_enabled=True</code> 时）</li>
-</ul>
-<h3 id="3-构建中间件链">3. 构建中间件链<a hidden class="anchor" aria-hidden="true" href="#3-构建中间件链">#</a></h3>
-<p>这是 DeerFlow 的核心设计。<code>_build_middlewares()</code> 按顺序组装一个中间件链，每个中间件在 Agent 执行的不同阶段插入逻辑：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/lead_agent/agent.py:208</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_build_middlewares</span>(config, model_name, agent_name<span style="color:#f92672">=</span><span style="color:#66d9ef">None</span>):
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 基础层：ThreadData → Uploads → Sandbox → DanglingToolCall → Guardrail → ToolErrorHandling</span>
-</span></span><span style="display:flex;"><span>    middlewares <span style="color:#f92672">=</span> build_lead_runtime_middlewares(lazy_init<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 按条件追加</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> summarization_enabled:     middlewares<span style="color:#f92672">.</span>append(SummarizationMiddleware(<span style="color:#f92672">...</span>))
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> is_plan_mode:              middlewares<span style="color:#f92672">.</span>append(TodoMiddleware())
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> token_usage_enabled:       middlewares<span style="color:#f92672">.</span>append(TokenUsageMiddleware())
-</span></span><span style="display:flex;"><span>    middlewares<span style="color:#f92672">.</span>append(TitleMiddleware())
-</span></span><span style="display:flex;"><span>    middlewares<span style="color:#f92672">.</span>append(MemoryMiddleware(agent_name<span style="color:#f92672">=</span>agent_name))
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> model_supports_vision:     middlewares<span style="color:#f92672">.</span>append(ViewImageMiddleware())
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> tool_search_enabled:       middlewares<span style="color:#f92672">.</span>append(DeferredToolFilterMiddleware())
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> subagent_enabled:          middlewares<span style="color:#f92672">.</span>append(SubagentLimitMiddleware(<span style="color:#f92672">...</span>))
-</span></span><span style="display:flex;"><span>    middlewares<span style="color:#f92672">.</span>append(LoopDetectionMiddleware())
-</span></span><span style="display:flex;"><span>    middlewares<span style="color:#f92672">.</span>append(ClarificationMiddleware())  <span style="color:#75715e"># 必须最后</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> middlewares
-</span></span></code></pre></div><p>最终的中间件链最多有 16 个，它们分布在 Agent 执行的五个钩子点上：</p>
-<table>
-  <thead>
-      <tr>
-          <th>钩子</th>
-          <th>触发时机</th>
-          <th>参与的中间件</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>before_agent</code></td>
-          <td>整个会话开始前，执行一次</td>
-          <td>ThreadData, Uploads, Sandbox</td>
-      </tr>
-      <tr>
-          <td><code>before_model</code></td>
-          <td>每轮 LLM 调用前</td>
-          <td>Todo, ViewImage</td>
-      </tr>
-      <tr>
-          <td><code>wrap_model_call</code></td>
-          <td>包裹 LLM 调用本身</td>
-          <td>DanglingToolCall, Summarization, DeferredToolFilter</td>
-      </tr>
-      <tr>
-          <td><code>after_model</code></td>
-          <td>每轮 LLM 调用后</td>
-          <td>LoopDetection, SubagentLimit, Title, TokenUsage</td>
-      </tr>
-      <tr>
-          <td><code>wrap_tool_call</code></td>
-          <td>包裹每个工具调用</td>
-          <td>ToolErrorHandling, Clarification</td>
-      </tr>
-      <tr>
-          <td><code>after_agent</code></td>
-          <td>整个会话结束后，执行一次</td>
-          <td>Memory, Sandbox(释放)</td>
-      </tr>
-  </tbody>
-</table>
-<h3 id="4-组装系统提示词">4. 组装系统提示词<a hidden class="anchor" aria-hidden="true" href="#4-组装系统提示词">#</a></h3>
-<p><code>apply_prompt_template()</code> 根据配置动态拼接系统提示词——由 12 个可选 section 条件组装，而非一个静态字符串。（第 2 篇会详细分析。）</p>
-<h3 id="5-编译-stategraph">5. 编译 StateGraph<a hidden class="anchor" aria-hidden="true" href="#5-编译-stategraph">#</a></h3>
-<p>四个组件准备好后，调用 LangChain 的 <code>create_agent()</code> 编译成 LangGraph 的 <code>StateGraph</code>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/lead_agent/agent.py:337</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> create_agent(
-</span></span><span style="display:flex;"><span>    model<span style="color:#f92672">=</span>create_chat_model(name<span style="color:#f92672">=</span>model_name, thinking_enabled<span style="color:#f92672">=</span>thinking_enabled),
-</span></span><span style="display:flex;"><span>    tools<span style="color:#f92672">=</span>get_available_tools(model_name<span style="color:#f92672">=</span>model_name, subagent_enabled<span style="color:#f92672">=</span>subagent_enabled),
-</span></span><span style="display:flex;"><span>    middleware<span style="color:#f92672">=</span>_build_middlewares(config, model_name<span style="color:#f92672">=</span>model_name),
-</span></span><span style="display:flex;"><span>    system_prompt<span style="color:#f92672">=</span>apply_prompt_template(subagent_enabled<span style="color:#f92672">=</span>subagent_enabled, <span style="color:#f92672">...</span>),
-</span></span><span style="display:flex;"><span>    state_schema<span style="color:#f92672">=</span>ThreadState,
-</span></span><span style="display:flex;"><span>)
-</span></span></code></pre></div><h2 id="阶段三agent-loop-执行">阶段三：Agent Loop 执行<a hidden class="anchor" aria-hidden="true" href="#阶段三agent-loop-执行">#</a></h2>
-<p>编译后的 StateGraph 是一个循环结构。用 Mermaid 表示：</p>
-<div class="mermaid">
-  graph TD
-    START([START]) --> BA[before_agent 中间件链]
-    BA --> BM[before_model 中间件链]
-    BM --> WM[wrap_model_call 中间件链]
-    WM --> LLM["model.ainvoke() — LLM API 调用"]
-    LLM --> AM[after_model 中间件链]
-    AM --> ROUTE{AIMessage 有 tool_calls?}
-    ROUTE -- 否 --> AA[after_agent 中间件链]
-    AA --> END_NODE([END])
-    ROUTE -- 是 --> TOOLS["tools 节点（并行执行）"]
-    TOOLS --> BM
-
-    style LLM fill:#f9d71c,stroke:#333
-    style ROUTE fill:#ff9800,stroke:#333
-    style TOOLS fill:#4caf50,stroke:#333,color:#fff
-</div>
-<p>核心是中间的循环：<strong>model → routing → tools → model → &hellip;</strong>，直到 LLM 返回一个不含 <code>tool_calls</code> 的纯文本消息。</p>
-<h3 id="一轮循环的细节">一轮循环的细节<a hidden class="anchor" aria-hidden="true" href="#一轮循环的细节">#</a></h3>
-<p>以用户问&quot;帮我分析一下这段代码&quot;为例，假设 Agent 决定先调用 <code>read_file</code> 再回答。</p>
-<p><strong>Step 1: before_model</strong></p>
-<p><code>TodoMiddleware</code> 检查对话历史是否被截断过（被 Summarization 压缩后 todo list 可能丢失），如果是就注入一条提醒消息。<code>ViewImageMiddleware</code> 检查最近是否有 <code>view_image</code> 工具调用，如果有就把图片 base64 注入消息。</p>
-<p><strong>Step 2: wrap_model_call（三层包裹）</strong></p>
-<pre tabindex="0"><code>DanglingToolCallMiddleware
+一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些"管理侧"的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。
+阶段一：前端发起请求
+用户按下 Enter
+入口在 ChatPage 组件。用户提交消息后，handleSubmit 把消息转交给 sendMessage：
+// frontend/src/app/workspace/chats/[thread_id]/page.tsx:64
+const handleSubmit = useCallback(
+  (message: PromptInputMessage) => {
+    void sendMessage(threadId, message);
+  },
+  [sendMessage, threadId],
+);
+sendMessage 来自 useThreadStream 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 useStream。'><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://linger-ai.github.io/posts/"},{"@type":"ListItem","position":2,"name":"DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期","item":"https://linger-ai.github.io/posts/deerflow-01-chat-request-lifecycle/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期","name":"DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期","description":" DeerFlow 源码解析系列目录\n导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇（本文）：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。\n第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？\n四个服务，各司其职 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：\n一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些\u0026quot;管理侧\u0026quot;的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。\n阶段一：前端发起请求 用户按下 Enter 入口在 ChatPage 组件。用户提交消息后，handleSubmit 把消息转交给 sendMessage：\n// frontend/src/app/workspace/chats/[thread_id]/page.tsx:64 const handleSubmit = useCallback( (message: PromptInputMessage) =\u0026gt; { void sendMessage(threadId, message); }, [sendMessage, threadId], ); sendMessage 来自 useThreadStream 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 useStream。\n","keywords":["AI","技术","DeerFlow"],"articleBody":" DeerFlow 源码解析系列目录\n导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇（本文）：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。\n第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？\n四个服务，各司其职 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：\n一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些\"管理侧\"的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。\n阶段一：前端发起请求 用户按下 Enter 入口在 ChatPage 组件。用户提交消息后，handleSubmit 把消息转交给 sendMessage：\n// frontend/src/app/workspace/chats/[thread_id]/page.tsx:64 const handleSubmit = useCallback( (message: PromptInputMessage) =\u003e { void sendMessage(threadId, message); }, [sendMessage, threadId], ); sendMessage 来自 useThreadStream 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 useStream。\n建立 SSE 流 useStream 的配置值得仔细看：\n// frontend/src/core/threads/hooks.ts:113 const thread = useStream\u003cAgentThreadState\u003e({ client: getAPIClient(), // LangGraph SDK 客户端（单例） assistantId: \"lead_agent\", // 对应后端 langgraph.json 中的 graph 名 threadId: onStreamThreadId, reconnectOnMount: true, // 页面刷新后自动重连 fetchStateHistory: { limit: 1 }, // 重连时拉取最新状态 // ...事件回调（下面展开） }); 当用户发消息时，thread.submit() 被调用。它发出一个 POST 请求，核心 payload 长这样：\n// frontend/src/core/threads/hooks.ts:347 await thread.submit( { messages: [{ type: \"human\", content: [{ type: \"text\", text }], additional_kwargs: filesForSubmit.length \u003e 0 ? { files: filesForSubmit } : {}, }], }, { threadId, streamSubgraphs: true, // 接收子 Agent 的流式事件 streamResumable: true, // 断线可重连 config: { recursion_limit: 1000 }, context: { thinking_enabled: context.mode !== \"flash\", is_plan_mode: context.mode === \"pro\" || context.mode === \"ultra\", subagent_enabled: context.mode === \"ultra\", reasoning_effort: /* ... */, thread_id: threadId, }, }, ); 注意 context 里的四个标志位。它们来自 UI 上的模式选择（Flash / Thinking / Pro / Ultra），直接决定了后端 Agent 的行为：是否开启深度思考、是否启用计划模式、是否允许委派子 Agent。\n流式协议 DeerFlow 不使用浏览器原生的 EventSource（它只支持 GET），而是用 fetch() POST + ReadableStream 来解析 SSE 协议。LangGraph SDK 内部实现了 BytesLineDecoder 和 SSEDecoder 两个 TransformStream，把字节流拆成 { event, data, id } 结构。\n断线重连的机制是：SDK 把 run_id 存在 sessionStorage 中。如果浏览器刷新或网络中断，下次会通过 GET /runs/{run_id}/join 重新接入同一个运行中的 Agent 会话。\n流经 nginx LangGraph SDK 客户端的 apiUrl 默认指向 {origin}/api/langgraph：\n// frontend/src/core/config/index.ts:28 return `${window.location.origin}/api/langgraph`; nginx 收到请求后，去掉 /api/langgraph/ 前缀，转发到 LangGraph Server：\n# docker/nginx/nginx.conf:57 location /api/langgraph/ { rewrite ^/api/langgraph/(.*) /$1 break; proxy_pass http://langgraph; # upstream langgraph -\u003e :2024 # SSE 必需：关闭缓冲，支持分块传输 proxy_buffering off; proxy_cache off; proxy_set_header X-Accel-Buffering no; chunked_transfer_encoding on; # 长连接超时 10 分钟 proxy_connect_timeout 600s; proxy_send_timeout 600s; proxy_read_timeout 600s; } 这段配置有两个要点：proxy_buffering off 确保 SSE 事件能即时到达浏览器（否则 nginx 会攒一批再发），600 秒超时给长时间运行的 Agent 留出足够时间。\n阶段二：LangGraph Server 构建 Agent LangGraph Server 收到 /threads/{id}/runs/stream 请求后，根据 assistant_id 查找对应的 graph factory：\n// backend/langgraph.json { \"graphs\": { \"lead_agent\": \"deerflow.agents:make_lead_agent\" } } \"lead_agent\" 映射到 make_lead_agent() 这个工厂函数。它做四件事：\n1. 解析运行时参数 前端传入的 context 会被放进 config[\"configurable\"]，工厂函数从中读取所有运行时标志：\n# backend/packages/harness/deerflow/agents/lead_agent/agent.py:273 cfg = config.get(\"configurable\", {}) thinking_enabled = cfg.get(\"thinking_enabled\", True) is_plan_mode = cfg.get(\"is_plan_mode\", False) subagent_enabled = cfg.get(\"subagent_enabled\", False) reasoning_effort = cfg.get(\"reasoning_effort\", None) model_name = cfg.get(\"model_name\") or cfg.get(\"model\") 2. 聚合工具集 get_available_tools() 把四个来源的工具合并成一个列表：\n配置文件中定义的工具（web_search、bash、read_file 等） 内置工具（present_file、ask_clarification、view_image） MCP 工具（从外部 MCP server 加载） 子 Agent 工具（task，仅当 subagent_enabled=True 时） 3. 构建中间件链 这是 DeerFlow 的核心设计。_build_middlewares() 按顺序组装一个中间件链，每个中间件在 Agent 执行的不同阶段插入逻辑：\n# backend/packages/harness/deerflow/agents/lead_agent/agent.py:208 def _build_middlewares(config, model_name, agent_name=None): # 基础层：ThreadData → Uploads → Sandbox → DanglingToolCall → Guardrail → ToolErrorHandling middlewares = build_lead_runtime_middlewares(lazy_init=True) # 按条件追加 if summarization_enabled: middlewares.append(SummarizationMiddleware(...)) if is_plan_mode: middlewares.append(TodoMiddleware()) if token_usage_enabled: middlewares.append(TokenUsageMiddleware()) middlewares.append(TitleMiddleware()) middlewares.append(MemoryMiddleware(agent_name=agent_name)) if model_supports_vision: middlewares.append(ViewImageMiddleware()) if tool_search_enabled: middlewares.append(DeferredToolFilterMiddleware()) if subagent_enabled: middlewares.append(SubagentLimitMiddleware(...)) middlewares.append(LoopDetectionMiddleware()) middlewares.append(ClarificationMiddleware()) # 必须最后 return middlewares 最终的中间件链最多有 16 个，它们分布在 Agent 执行的五个钩子点上：\n钩子 触发时机 参与的中间件 before_agent 整个会话开始前，执行一次 ThreadData, Uploads, Sandbox before_model 每轮 LLM 调用前 Todo, ViewImage wrap_model_call 包裹 LLM 调用本身 DanglingToolCall, Summarization, DeferredToolFilter after_model 每轮 LLM 调用后 LoopDetection, SubagentLimit, Title, TokenUsage wrap_tool_call 包裹每个工具调用 ToolErrorHandling, Clarification after_agent 整个会话结束后，执行一次 Memory, Sandbox(释放) 4. 组装系统提示词 apply_prompt_template() 根据配置动态拼接系统提示词——由 12 个可选 section 条件组装，而非一个静态字符串。（第 2 篇会详细分析。）\n5. 编译 StateGraph 四个组件准备好后，调用 LangChain 的 create_agent() 编译成 LangGraph 的 StateGraph：\n# backend/packages/harness/deerflow/agents/lead_agent/agent.py:337 return create_agent( model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled), tools=get_available_tools(model_name=model_name, subagent_enabled=subagent_enabled), middleware=_build_middlewares(config, model_name=model_name), system_prompt=apply_prompt_template(subagent_enabled=subagent_enabled, ...), state_schema=ThreadState, ) 阶段三：Agent Loop 执行 编译后的 StateGraph 是一个循环结构。用 Mermaid 表示：\ngraph TD START([START]) --\u003e BA[before_agent 中间件链] BA --\u003e BM[before_model 中间件链] BM --\u003e WM[wrap_model_call 中间件链] WM --\u003e LLM[\"model.ainvoke() — LLM API 调用\"] LLM --\u003e AM[after_model 中间件链] AM --\u003e ROUTE{AIMessage 有 tool_calls?} ROUTE -- 否 --\u003e AA[after_agent 中间件链] AA --\u003e END_NODE([END]) ROUTE -- 是 --\u003e TOOLS[\"tools 节点（并行执行）\"] TOOLS --\u003e BM style LLM fill:#f9d71c,stroke:#333 style ROUTE fill:#ff9800,stroke:#333 style TOOLS fill:#4caf50,stroke:#333,color:#fff 核心是中间的循环：model → routing → tools → model → …，直到 LLM 返回一个不含 tool_calls 的纯文本消息。\n一轮循环的细节 以用户问\"帮我分析一下这段代码\"为例，假设 Agent 决定先调用 read_file 再回答。\nStep 1: before_model\nTodoMiddleware 检查对话历史是否被截断过（被 Summarization 压缩后 todo list 可能丢失），如果是就注入一条提醒消息。ViewImageMiddleware 检查最近是否有 view_image 工具调用，如果有就把图片 base64 注入消息。\nStep 2: wrap_model_call（三层包裹）\nDanglingToolCallMiddleware → 扫描历史：有没有 AIMessage 带 tool_calls 但没有对应的 ToolMessage？ → 如果有，注入占位 ToolMessage：\"[Tool call was interrupted]\" SummarizationMiddleware → 检查消息历史的 token 数是否超过阈值 → 如果超过，把旧消息交给一个轻量模型做摘要，替换原始消息 DeferredToolFilterMiddleware → 如果启用了 tool_search，把延迟加载的 MCP 工具 schema 从 bind_tools 中移除 → 省下的 context tokens 可以留给对话内容 最内层：model.bind_tools(tools).ainvoke(messages) ← 真正的 LLM API 调用 Step 3: after_model\nLLM 返回了一个 AIMessage，包含一个 read_file 工具调用。中间件依次处理：\nLoopDetectionMiddleware：把 tool_calls 哈希后放入滑动窗口，检查是否重复。如果同一个调用出现 3 次，注入警告；5 次，直接剥离 tool_calls 强制停止。 SubagentLimitMiddleware：如果有超过 3 个 task 调用，截断多余的。 TitleMiddleware：如果是第一轮对话，异步调用一个轻量模型生成会话标题。 TokenUsageMiddleware：从 LLM 响应的 metadata 中记录 token 消耗。 Step 4: 路由\nAIMessage 有 tool_calls → 进入 tools 节点。LangGraph 使用 Send() 机制，每个工具调用被并行分发执行。\nStep 5: tools 节点\n每个工具调用被两层中间件包裹：\nToolErrorHandlingMiddleware → 捕获所有异常（除了 GraphBubbleUp） → 转成 ToolMessage：\"Error: Tool 'X' failed with Y. Continue with available context, or choose an alternative tool.\" → Agent 会读到这条消息并调整策略 ClarificationMiddleware → 如果工具是 ask_clarification，拦截执行 → 返回 Command(goto=END)，物理中断整个 Agent Loop → 用户回复后才能继续 最内层：actual_tool.invoke(args) read_file 正常执行，返回文件内容作为 ToolMessage。\nStep 6: 回到 before_model\nToolMessage 进入消息历史，循环回到 Step 1。这次 LLM 有了文件内容，生成一个不含 tool_calls 的文本回复。路由判定\"无 tool_calls\"，退出循环进入 after_agent。\nStep 7: after_agent\nMemoryMiddleware：把这轮对话入队，30 秒防抖后异步更新 memory.json SandboxMiddleware：释放沙箱资源 阶段四：流式事件回到浏览器 Agent Loop 的每个节点转换都会生成 SSE 事件。前端通过 5 种 stream_mode 并行接收：\nstream_mode 内容 前端处理 values 完整状态快照（messages, title, artifacts, todos） 更新 thread 对象 messages-tuple 流式消息片段 [AIMessage, metadata] Streamdown 组件逐字渲染 Markdown updates 节点级增量更新 {node: partial_state} 更新标题到线程列表缓存 custom 自定义事件（task_started, task_running, task_completed） 驱动 SubtaskCard 组件 events LangChain 级事件（on_tool_end 等） 触发工具调用结束回调 useStream Hook 通过回调函数分发这些事件：\n// frontend/src/core/threads/hooks.ts onUpdateEvent(data) { // 从 updates 事件中提取新标题，立即更新线程列表 // 用户无需刷新就能看到标题变化 }, onCustomEvent(event) { // 子 Agent 的进度事件 → SubtaskCard 组件实时更新 if (event.type === \"task_running\") { updateSubtask({ id: event.task_id, latestMessage: event.message }); } }, 最终，thread.isLoading 变为 false，optimistic message 被清除，用户看到完整的 AI 回复。\n子 Agent：循环中的循环 如果 LLM 在某一轮调用了 task 工具（需要 subagent_enabled=True，即 Ultra 模式），流程会分叉：\nsequenceDiagram participant Main as 主 Agent Loop participant TaskTool as task_tool participant Pool as 线程池 (3+3) participant Sub as 子 Agent Loop participant Browser as 浏览器 Main-\u003e\u003eTaskTool: tool_call: task(description=\"...\") TaskTool-\u003e\u003ePool: execute_async(prompt) TaskTool--\u003e\u003eBrowser: SSE custom: task_started Pool-\u003e\u003eSub: 创建子 Agent（thinking=off, 工具受限） Sub-\u003e\u003eSub: 自己的 model→tools→model 循环 loop 每 5 秒 TaskTool-\u003e\u003ePool: 轮询状态 Pool--\u003e\u003eTaskTool: 中间结果 TaskTool--\u003e\u003eBrowser: SSE custom: task_running end Sub--\u003e\u003ePool: SubagentResult Pool--\u003e\u003eTaskTool: 完成 TaskTool--\u003e\u003eBrowser: SSE custom: task_completed TaskTool--\u003e\u003eMain: ToolMessage: \"Task Succeeded. Result: ...\" Main-\u003e\u003eMain: 继续主循环 子 Agent 运行在独立的线程池中（3 个调度线程 + 3 个执行线程），有自己的 Agent Loop，但配置大幅精简：thinking 强制关闭、没有记忆注入、没有技能目录、工具集经过过滤（去掉 task、ask_clarification）。主 Agent 每 5 秒轮询子 Agent 状态，通过 stream_writer 发射 custom 事件，浏览器端的 SubtaskCard 组件随之更新。\n完整链路一览 把以上所有阶段串起来：\n用户 Enter → React handleSubmit() → LangGraph SDK thread.submit() → fetch POST {origin}/api/langgraph/threads/{id}/runs/stream → nginx rewrite → LangGraph Server :2024 → make_lead_agent(config) → 解析参数 + 聚合工具 + 构建中间件链 + 组装提示词 → create_agent() 编译 StateGraph → [before_agent] ThreadData → Uploads → Sandbox → { [before_model] → [wrap_model_call] → LLM API → [after_model] → 有 tool_calls? → [wrap_tool_call] → tool.invoke() → 循环 } → [after_agent] Memory → Sandbox释放 → SSE 事件流 → nginx → Browser → StreamManager 分发 → React re-render → 用户看到回复 下一篇我们放大 Agent Loop 内部最核心的部分——系统提示词是如何被动态组装的，以及 DeerFlow 如何管理上下文窗口不被撑爆。\n","wordCount":"1069","inLanguage":"en","datePublished":"2026-03-28T10:00:00+08:00","dateModified":"2026-03-28T10:00:00+08:00","author":{"@type":"Person","name":"Linger"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://linger-ai.github.io/posts/deerflow-01-chat-request-lifecycle/"},"publisher":{"@type":"Organization","name":"Linger-AI Space","logo":{"@type":"ImageObject","url":"https://linger-ai.github.io/favicon.ico"}}}</script></head><body id=top><header class=header><nav class=nav><div class=logo><a href=https://linger-ai.github.io/ accesskey=h title="Linger-AI Space (Alt + H)">Linger-AI Space</a><div class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)" aria-label="Toggle theme">
+<svg id="moon" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+<svg id="sun" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></div></div><ul id=menu><li><a href=https://linger-ai.github.io/posts title=文章><span>文章</span></a></li><li><a href=https://linger-ai.github.io/bulletin title=灵儿情报站><span>灵儿情报站</span></a></li><li><a href=https://linger-ai.github.io/archives title=归档><span>归档</span></a></li><li><a href=https://linger-ai.github.io/tags title=标签><span>标签</span></a></li><li><a href=https://linger-ai.github.io/search title="搜索 (Alt + /)" accesskey=/><span>搜索</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><h1 class="post-title entry-hint-parent">DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期</h1><div class=post-meta><span title='2026-03-28 10:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1069 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></div></header><div class=post-content><blockquote><p><strong>DeerFlow 源码解析系列目录</strong></p><ul><li><a href=/posts/deerflow-00-introduction>导读：AI Agent 框架的选择与 DeerFlow 的定位</a></li><li><strong>第一篇（本文）</strong>：一个 Chat 请求的完整生命周期</li><li><a href=/posts/deerflow-02-prompt-engineering-context>第二篇：系统提示词工程与上下文架构</a></li><li><a href=/posts/deerflow-03-multi-agent-collaboration>第三篇：主从 Agent 协作与安全边界</a></li><li><a href=/posts/deerflow-04-skills-mcp-tools>第四篇：Skills、MCP 与工具生态</a></li><li><a href=/posts/deerflow-05-sandbox-isolation>第五篇：沙箱隔离与代码执行</a></li><li><a href=/posts/deerflow-06-memory-im-channels>第六篇：长期记忆、IM 通道与多端接入</a></li><li><a href=/posts/deerflow-07-harness-engineering>第七篇：Harness Engineering 工程实践</a></li></ul></blockquote><hr><p>DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。</p><p>第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？</p><h2 id=四个服务各司其职>四个服务，各司其职<a hidden class=anchor aria-hidden=true href=#四个服务各司其职>#</a></h2><p>DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：</p><p><img alt=dac8cca4cbf99a8cbcdd48.png loading=lazy src=https://chenxqblog-1258795182.cos.ap-guangzhou.myqcloud.com/obsidian/dac8cca4cbf99a8cbcdd48.png></p><p>一个容易产生误解的地方是：<strong>Chat 的流式传输不经过 Gateway</strong>。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些"管理侧"的 API。Chat 消息直接走 <code>nginx → LangGraph Server</code>，Gateway 完全不参与。</p><h2 id=阶段一前端发起请求>阶段一：前端发起请求<a hidden class=anchor aria-hidden=true href=#阶段一前端发起请求>#</a></h2><h3 id=用户按下-enter>用户按下 Enter<a hidden class=anchor aria-hidden=true href=#用户按下-enter>#</a></h3><p>入口在 <code>ChatPage</code> 组件。用户提交消息后，<code>handleSubmit</code> 把消息转交给 <code>sendMessage</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-tsx data-lang=tsx><span style=display:flex><span><span style=color:#75715e>// frontend/src/app/workspace/chats/[thread_id]/page.tsx:64
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>handleSubmit</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>useCallback</span>(
+</span></span><span style=display:flex><span>  (<span style=color:#a6e22e>message</span>: <span style=color:#66d9ef>PromptInputMessage</span>) <span style=color:#f92672>=&gt;</span> {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>sendMessage</span>(<span style=color:#a6e22e>threadId</span>, <span style=color:#a6e22e>message</span>);
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  [<span style=color:#a6e22e>sendMessage</span>, <span style=color:#a6e22e>threadId</span>],
+</span></span><span style=display:flex><span>);
+</span></span></code></pre></div><p><code>sendMessage</code> 来自 <code>useThreadStream</code> 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 <code>useStream</code>。</p><h3 id=建立-sse-流>建立 SSE 流<a hidden class=anchor aria-hidden=true href=#建立-sse-流>#</a></h3><p><code>useStream</code> 的配置值得仔细看：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-ts data-lang=ts><span style=display:flex><span><span style=color:#75715e>// frontend/src/core/threads/hooks.ts:113
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>thread</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>useStream</span>&lt;<span style=color:#f92672>AgentThreadState</span>&gt;({
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>client</span>: <span style=color:#66d9ef>getAPIClient</span>(),          <span style=color:#75715e>// LangGraph SDK 客户端（单例）
+</span></span></span><span style=display:flex><span>  <span style=color:#a6e22e>assistantId</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;lead_agent&#34;</span>,       <span style=color:#75715e>// 对应后端 langgraph.json 中的 graph 名
+</span></span></span><span style=display:flex><span>  <span style=color:#a6e22e>threadId</span>: <span style=color:#66d9ef>onStreamThreadId</span>,
+</span></span><span style=display:flex><span>  <span style=color:#a6e22e>reconnectOnMount</span>: <span style=color:#66d9ef>true</span>,          <span style=color:#75715e>// 页面刷新后自动重连
+</span></span></span><span style=display:flex><span>  <span style=color:#a6e22e>fetchStateHistory</span><span style=color:#f92672>:</span> { <span style=color:#a6e22e>limit</span>: <span style=color:#66d9ef>1</span> }, <span style=color:#75715e>// 重连时拉取最新状态
+</span></span></span><span style=display:flex><span>  <span style=color:#75715e>// ...事件回调（下面展开）
+</span></span></span><span style=display:flex><span>});
+</span></span></code></pre></div><p>当用户发消息时，<code>thread.submit()</code> 被调用。它发出一个 <strong>POST 请求</strong>，核心 payload 长这样：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-ts data-lang=ts><span style=display:flex><span><span style=color:#75715e>// frontend/src/core/threads/hooks.ts:347
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>await</span> <span style=color:#a6e22e>thread</span>.<span style=color:#a6e22e>submit</span>(
+</span></span><span style=display:flex><span>  {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>messages</span><span style=color:#f92672>:</span> [{
+</span></span><span style=display:flex><span>      <span style=color:#66d9ef>type</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;human&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>content</span><span style=color:#f92672>:</span> [{ <span style=color:#66d9ef>type</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;text&#34;</span>, <span style=color:#a6e22e>text</span> }],
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>additional_kwargs</span>: <span style=color:#66d9ef>filesForSubmit.length</span> <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span> <span style=color:#f92672>?</span> { <span style=color:#a6e22e>files</span>: <span style=color:#66d9ef>filesForSubmit</span> } <span style=color:#f92672>:</span> {},
+</span></span><span style=display:flex><span>    }],
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>  {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>threadId</span>,
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>streamSubgraphs</span>: <span style=color:#66d9ef>true</span>,    <span style=color:#75715e>// 接收子 Agent 的流式事件
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>streamResumable</span>: <span style=color:#66d9ef>true</span>,    <span style=color:#75715e>// 断线可重连
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>config</span><span style=color:#f92672>:</span> { <span style=color:#a6e22e>recursion_limit</span>: <span style=color:#66d9ef>1000</span> },
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>context</span><span style=color:#f92672>:</span> {
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>thinking_enabled</span>: <span style=color:#66d9ef>context.mode</span> <span style=color:#f92672>!==</span> <span style=color:#e6db74>&#34;flash&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>is_plan_mode</span>: <span style=color:#66d9ef>context.mode</span> <span style=color:#f92672>===</span> <span style=color:#e6db74>&#34;pro&#34;</span> <span style=color:#f92672>||</span> <span style=color:#a6e22e>context</span>.<span style=color:#a6e22e>mode</span> <span style=color:#f92672>===</span> <span style=color:#e6db74>&#34;ultra&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>subagent_enabled</span>: <span style=color:#66d9ef>context.mode</span> <span style=color:#f92672>===</span> <span style=color:#e6db74>&#34;ultra&#34;</span>,
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>reasoning_effort</span><span style=color:#f92672>:</span> <span style=color:#75715e>/* ... */</span>,
+</span></span><span style=display:flex><span>      <span style=color:#a6e22e>thread_id</span>: <span style=color:#66d9ef>threadId</span>,
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>  },
+</span></span><span style=display:flex><span>);
+</span></span></code></pre></div><p>注意 <code>context</code> 里的四个标志位。它们来自 UI 上的模式选择（Flash / Thinking / Pro / Ultra），直接决定了后端 Agent 的行为：是否开启深度思考、是否启用计划模式、是否允许委派子 Agent。</p><h3 id=流式协议>流式协议<a hidden class=anchor aria-hidden=true href=#流式协议>#</a></h3><p>DeerFlow 不使用浏览器原生的 <code>EventSource</code>（它只支持 GET），而是用 <strong><code>fetch()</code> POST + ReadableStream</strong> 来解析 SSE 协议。LangGraph SDK 内部实现了 <code>BytesLineDecoder</code> 和 <code>SSEDecoder</code> 两个 TransformStream，把字节流拆成 <code>{ event, data, id }</code> 结构。</p><p>断线重连的机制是：SDK 把 <code>run_id</code> 存在 <code>sessionStorage</code> 中。如果浏览器刷新或网络中断，下次会通过 <code>GET /runs/{run_id}/join</code> 重新接入同一个运行中的 Agent 会话。</p><h3 id=流经-nginx>流经 nginx<a hidden class=anchor aria-hidden=true href=#流经-nginx>#</a></h3><p>LangGraph SDK 客户端的 <code>apiUrl</code> 默认指向 <code>{origin}/api/langgraph</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-ts data-lang=ts><span style=display:flex><span><span style=color:#75715e>// frontend/src/core/config/index.ts:28
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>return</span> <span style=color:#e6db74>`</span><span style=color:#e6db74>${</span>window.<span style=color:#a6e22e>location</span>.<span style=color:#a6e22e>origin</span><span style=color:#e6db74>}</span><span style=color:#e6db74>/api/langgraph`</span>;
+</span></span></code></pre></div><p>nginx 收到请求后，去掉 <code>/api/langgraph/</code> 前缀，转发到 LangGraph Server：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-nginx data-lang=nginx><span style=display:flex><span><span style=color:#75715e># docker/nginx/nginx.conf:57
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>location</span> <span style=color:#e6db74>/api/langgraph/</span> {
+</span></span><span style=display:flex><span>    <span style=color:#f92672>rewrite</span> <span style=color:#e6db74>^/api/langgraph/(.*)</span> <span style=color:#e6db74>/</span>$1 <span style=color:#e6db74>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>proxy_pass</span> <span style=color:#e6db74>http://langgraph</span>;   <span style=color:#75715e># upstream langgraph -&gt; :2024
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e># SSE 必需：关闭缓冲，支持分块传输
+</span></span></span><span style=display:flex><span>    <span style=color:#f92672>proxy_buffering</span> <span style=color:#66d9ef>off</span>;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>proxy_cache</span> <span style=color:#66d9ef>off</span>;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>proxy_set_header</span> <span style=color:#e6db74>X-Accel-Buffering</span> <span style=color:#e6db74>no</span>;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>chunked_transfer_encoding</span> <span style=color:#66d9ef>on</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e># 长连接超时 10 分钟
+</span></span></span><span style=display:flex><span>    <span style=color:#f92672>proxy_connect_timeout</span> <span style=color:#e6db74>600s</span>;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>proxy_send_timeout</span> <span style=color:#e6db74>600s</span>;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>proxy_read_timeout</span> <span style=color:#e6db74>600s</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这段配置有两个要点：<code>proxy_buffering off</code> 确保 SSE 事件能即时到达浏览器（否则 nginx 会攒一批再发），600 秒超时给长时间运行的 Agent 留出足够时间。</p><h2 id=阶段二langgraph-server-构建-agent>阶段二：LangGraph Server 构建 Agent<a hidden class=anchor aria-hidden=true href=#阶段二langgraph-server-构建-agent>#</a></h2><p>LangGraph Server 收到 <code>/threads/{id}/runs/stream</code> 请求后，根据 <code>assistant_id</code> 查找对应的 graph factory：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-json data-lang=json><span style=display:flex><span><span style=color:#75715e>// backend/langgraph.json
+</span></span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#f92672>&#34;graphs&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&#34;lead_agent&#34;</span>: <span style=color:#e6db74>&#34;deerflow.agents:make_lead_agent&#34;</span>
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>"lead_agent"</code> 映射到 <code>make_lead_agent()</code> 这个工厂函数。它做四件事：</p><h3 id=1-解析运行时参数>1. 解析运行时参数<a hidden class=anchor aria-hidden=true href=#1-解析运行时参数>#</a></h3><p>前端传入的 <code>context</code> 会被放进 <code>config["configurable"]</code>，工厂函数从中读取所有运行时标志：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#75715e># backend/packages/harness/deerflow/agents/lead_agent/agent.py:273</span>
+</span></span><span style=display:flex><span>cfg <span style=color:#f92672>=</span> config<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;configurable&#34;</span>, {})
+</span></span><span style=display:flex><span>thinking_enabled <span style=color:#f92672>=</span> cfg<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;thinking_enabled&#34;</span>, <span style=color:#66d9ef>True</span>)
+</span></span><span style=display:flex><span>is_plan_mode <span style=color:#f92672>=</span> cfg<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;is_plan_mode&#34;</span>, <span style=color:#66d9ef>False</span>)
+</span></span><span style=display:flex><span>subagent_enabled <span style=color:#f92672>=</span> cfg<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;subagent_enabled&#34;</span>, <span style=color:#66d9ef>False</span>)
+</span></span><span style=display:flex><span>reasoning_effort <span style=color:#f92672>=</span> cfg<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;reasoning_effort&#34;</span>, <span style=color:#66d9ef>None</span>)
+</span></span><span style=display:flex><span>model_name <span style=color:#f92672>=</span> cfg<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;model_name&#34;</span>) <span style=color:#f92672>or</span> cfg<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;model&#34;</span>)
+</span></span></code></pre></div><h3 id=2-聚合工具集>2. 聚合工具集<a hidden class=anchor aria-hidden=true href=#2-聚合工具集>#</a></h3><p><code>get_available_tools()</code> 把四个来源的工具合并成一个列表：</p><ul><li>配置文件中定义的工具（web_search、bash、read_file 等）</li><li>内置工具（present_file、ask_clarification、view_image）</li><li>MCP 工具（从外部 MCP server 加载）</li><li>子 Agent 工具（<code>task</code>，仅当 <code>subagent_enabled=True</code> 时）</li></ul><h3 id=3-构建中间件链>3. 构建中间件链<a hidden class=anchor aria-hidden=true href=#3-构建中间件链>#</a></h3><p>这是 DeerFlow 的核心设计。<code>_build_middlewares()</code> 按顺序组装一个中间件链，每个中间件在 Agent 执行的不同阶段插入逻辑：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#75715e># backend/packages/harness/deerflow/agents/lead_agent/agent.py:208</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>def</span> <span style=color:#a6e22e>_build_middlewares</span>(config, model_name, agent_name<span style=color:#f92672>=</span><span style=color:#66d9ef>None</span>):
+</span></span><span style=display:flex><span>    <span style=color:#75715e># 基础层：ThreadData → Uploads → Sandbox → DanglingToolCall → Guardrail → ToolErrorHandling</span>
+</span></span><span style=display:flex><span>    middlewares <span style=color:#f92672>=</span> build_lead_runtime_middlewares(lazy_init<span style=color:#f92672>=</span><span style=color:#66d9ef>True</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e># 按条件追加</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> summarization_enabled:     middlewares<span style=color:#f92672>.</span>append(SummarizationMiddleware(<span style=color:#f92672>...</span>))
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> is_plan_mode:              middlewares<span style=color:#f92672>.</span>append(TodoMiddleware())
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> token_usage_enabled:       middlewares<span style=color:#f92672>.</span>append(TokenUsageMiddleware())
+</span></span><span style=display:flex><span>    middlewares<span style=color:#f92672>.</span>append(TitleMiddleware())
+</span></span><span style=display:flex><span>    middlewares<span style=color:#f92672>.</span>append(MemoryMiddleware(agent_name<span style=color:#f92672>=</span>agent_name))
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> model_supports_vision:     middlewares<span style=color:#f92672>.</span>append(ViewImageMiddleware())
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> tool_search_enabled:       middlewares<span style=color:#f92672>.</span>append(DeferredToolFilterMiddleware())
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> subagent_enabled:          middlewares<span style=color:#f92672>.</span>append(SubagentLimitMiddleware(<span style=color:#f92672>...</span>))
+</span></span><span style=display:flex><span>    middlewares<span style=color:#f92672>.</span>append(LoopDetectionMiddleware())
+</span></span><span style=display:flex><span>    middlewares<span style=color:#f92672>.</span>append(ClarificationMiddleware())  <span style=color:#75715e># 必须最后</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> middlewares
+</span></span></code></pre></div><p>最终的中间件链最多有 16 个，它们分布在 Agent 执行的五个钩子点上：</p><table><thead><tr><th>钩子</th><th>触发时机</th><th>参与的中间件</th></tr></thead><tbody><tr><td><code>before_agent</code></td><td>整个会话开始前，执行一次</td><td>ThreadData, Uploads, Sandbox</td></tr><tr><td><code>before_model</code></td><td>每轮 LLM 调用前</td><td>Todo, ViewImage</td></tr><tr><td><code>wrap_model_call</code></td><td>包裹 LLM 调用本身</td><td>DanglingToolCall, Summarization, DeferredToolFilter</td></tr><tr><td><code>after_model</code></td><td>每轮 LLM 调用后</td><td>LoopDetection, SubagentLimit, Title, TokenUsage</td></tr><tr><td><code>wrap_tool_call</code></td><td>包裹每个工具调用</td><td>ToolErrorHandling, Clarification</td></tr><tr><td><code>after_agent</code></td><td>整个会话结束后，执行一次</td><td>Memory, Sandbox(释放)</td></tr></tbody></table><h3 id=4-组装系统提示词>4. 组装系统提示词<a hidden class=anchor aria-hidden=true href=#4-组装系统提示词>#</a></h3><p><code>apply_prompt_template()</code> 根据配置动态拼接系统提示词——由 12 个可选 section 条件组装，而非一个静态字符串。（第 2 篇会详细分析。）</p><h3 id=5-编译-stategraph>5. 编译 StateGraph<a hidden class=anchor aria-hidden=true href=#5-编译-stategraph>#</a></h3><p>四个组件准备好后，调用 LangChain 的 <code>create_agent()</code> 编译成 LangGraph 的 <code>StateGraph</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#75715e># backend/packages/harness/deerflow/agents/lead_agent/agent.py:337</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>return</span> create_agent(
+</span></span><span style=display:flex><span>    model<span style=color:#f92672>=</span>create_chat_model(name<span style=color:#f92672>=</span>model_name, thinking_enabled<span style=color:#f92672>=</span>thinking_enabled),
+</span></span><span style=display:flex><span>    tools<span style=color:#f92672>=</span>get_available_tools(model_name<span style=color:#f92672>=</span>model_name, subagent_enabled<span style=color:#f92672>=</span>subagent_enabled),
+</span></span><span style=display:flex><span>    middleware<span style=color:#f92672>=</span>_build_middlewares(config, model_name<span style=color:#f92672>=</span>model_name),
+</span></span><span style=display:flex><span>    system_prompt<span style=color:#f92672>=</span>apply_prompt_template(subagent_enabled<span style=color:#f92672>=</span>subagent_enabled, <span style=color:#f92672>...</span>),
+</span></span><span style=display:flex><span>    state_schema<span style=color:#f92672>=</span>ThreadState,
+</span></span><span style=display:flex><span>)
+</span></span></code></pre></div><h2 id=阶段三agent-loop-执行>阶段三：Agent Loop 执行<a hidden class=anchor aria-hidden=true href=#阶段三agent-loop-执行>#</a></h2><p>编译后的 StateGraph 是一个循环结构。用 Mermaid 表示：</p><div class=mermaid>graph TD
+START([START]) --> BA[before_agent 中间件链]
+BA --> BM[before_model 中间件链]
+BM --> WM[wrap_model_call 中间件链]
+WM --> LLM["model.ainvoke() — LLM API 调用"]
+LLM --> AM[after_model 中间件链]
+AM --> ROUTE{AIMessage 有 tool_calls?}
+ROUTE -- 否 --> AA[after_agent 中间件链]
+AA --> END_NODE([END])
+ROUTE -- 是 --> TOOLS["tools 节点（并行执行）"]
+TOOLS --> BM
+style LLM fill:#f9d71c,stroke:#333
+style ROUTE fill:#ff9800,stroke:#333
+style TOOLS fill:#4caf50,stroke:#333,color:#fff</div><p>核心是中间的循环：<strong>model → routing → tools → model → &mldr;</strong>，直到 LLM 返回一个不含 <code>tool_calls</code> 的纯文本消息。</p><h3 id=一轮循环的细节>一轮循环的细节<a hidden class=anchor aria-hidden=true href=#一轮循环的细节>#</a></h3><p>以用户问"帮我分析一下这段代码"为例，假设 Agent 决定先调用 <code>read_file</code> 再回答。</p><p><strong>Step 1: before_model</strong></p><p><code>TodoMiddleware</code> 检查对话历史是否被截断过（被 Summarization 压缩后 todo list 可能丢失），如果是就注入一条提醒消息。<code>ViewImageMiddleware</code> 检查最近是否有 <code>view_image</code> 工具调用，如果有就把图片 base64 注入消息。</p><p><strong>Step 2: wrap_model_call（三层包裹）</strong></p><pre tabindex=0><code>DanglingToolCallMiddleware
   → 扫描历史：有没有 AIMessage 带 tool_calls 但没有对应的 ToolMessage？
   → 如果有，注入占位 ToolMessage：&#34;[Tool call was interrupted]&#34;
 
@@ -402,19 +187,7 @@ DeferredToolFilterMiddleware
   → 省下的 context tokens 可以留给对话内容
 
 最内层：model.bind_tools(tools).ainvoke(messages)  ← 真正的 LLM API 调用
-</code></pre><p><strong>Step 3: after_model</strong></p>
-<p>LLM 返回了一个 AIMessage，包含一个 <code>read_file</code> 工具调用。中间件依次处理：</p>
-<ul>
-<li><code>LoopDetectionMiddleware</code>：把 tool_calls 哈希后放入滑动窗口，检查是否重复。如果同一个调用出现 3 次，注入警告；5 次，直接剥离 tool_calls 强制停止。</li>
-<li><code>SubagentLimitMiddleware</code>：如果有超过 3 个 <code>task</code> 调用，截断多余的。</li>
-<li><code>TitleMiddleware</code>：如果是第一轮对话，异步调用一个轻量模型生成会话标题。</li>
-<li><code>TokenUsageMiddleware</code>：从 LLM 响应的 metadata 中记录 token 消耗。</li>
-</ul>
-<p><strong>Step 4: 路由</strong></p>
-<p>AIMessage 有 <code>tool_calls</code> → 进入 tools 节点。LangGraph 使用 <code>Send()</code> 机制，<strong>每个工具调用被并行分发执行</strong>。</p>
-<p><strong>Step 5: tools 节点</strong></p>
-<p>每个工具调用被两层中间件包裹：</p>
-<pre tabindex="0"><code>ToolErrorHandlingMiddleware
+</code></pre><p><strong>Step 3: after_model</strong></p><p>LLM 返回了一个 AIMessage，包含一个 <code>read_file</code> 工具调用。中间件依次处理：</p><ul><li><code>LoopDetectionMiddleware</code>：把 tool_calls 哈希后放入滑动窗口，检查是否重复。如果同一个调用出现 3 次，注入警告；5 次，直接剥离 tool_calls 强制停止。</li><li><code>SubagentLimitMiddleware</code>：如果有超过 3 个 <code>task</code> 调用，截断多余的。</li><li><code>TitleMiddleware</code>：如果是第一轮对话，异步调用一个轻量模型生成会话标题。</li><li><code>TokenUsageMiddleware</code>：从 LLM 响应的 metadata 中记录 token 消耗。</li></ul><p><strong>Step 4: 路由</strong></p><p>AIMessage 有 <code>tool_calls</code> → 进入 tools 节点。LangGraph 使用 <code>Send()</code> 机制，<strong>每个工具调用被并行分发执行</strong>。</p><p><strong>Step 5: tools 节点</strong></p><p>每个工具调用被两层中间件包裹：</p><pre tabindex=0><code>ToolErrorHandlingMiddleware
   → 捕获所有异常（除了 GraphBubbleUp）
   → 转成 ToolMessage：&#34;Error: Tool &#39;X&#39; failed with Y. Continue with available context, or choose an alternative tool.&#34;
   → Agent 会读到这条消息并调整策略
@@ -425,98 +198,38 @@ ClarificationMiddleware
   → 用户回复后才能继续
 
 最内层：actual_tool.invoke(args)
-</code></pre><p><code>read_file</code> 正常执行，返回文件内容作为 ToolMessage。</p>
-<p><strong>Step 6: 回到 before_model</strong></p>
-<p>ToolMessage 进入消息历史，循环回到 Step 1。这次 LLM 有了文件内容，生成一个不含 tool_calls 的文本回复。路由判定&quot;无 tool_calls&quot;，退出循环进入 <code>after_agent</code>。</p>
-<p><strong>Step 7: after_agent</strong></p>
-<ul>
-<li><code>MemoryMiddleware</code>：把这轮对话入队，30 秒防抖后异步更新 <code>memory.json</code></li>
-<li><code>SandboxMiddleware</code>：释放沙箱资源</li>
-</ul>
-<h2 id="阶段四流式事件回到浏览器">阶段四：流式事件回到浏览器<a hidden class="anchor" aria-hidden="true" href="#阶段四流式事件回到浏览器">#</a></h2>
-<p>Agent Loop 的每个节点转换都会生成 SSE 事件。前端通过 5 种 <code>stream_mode</code> 并行接收：</p>
-<table>
-  <thead>
-      <tr>
-          <th>stream_mode</th>
-          <th>内容</th>
-          <th>前端处理</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>values</code></td>
-          <td>完整状态快照（messages, title, artifacts, todos）</td>
-          <td>更新 thread 对象</td>
-      </tr>
-      <tr>
-          <td><code>messages-tuple</code></td>
-          <td>流式消息片段 <code>[AIMessage, metadata]</code></td>
-          <td>Streamdown 组件逐字渲染 Markdown</td>
-      </tr>
-      <tr>
-          <td><code>updates</code></td>
-          <td>节点级增量更新 <code>{node: partial_state}</code></td>
-          <td>更新标题到线程列表缓存</td>
-      </tr>
-      <tr>
-          <td><code>custom</code></td>
-          <td>自定义事件（task_started, task_running, task_completed）</td>
-          <td>驱动 SubtaskCard 组件</td>
-      </tr>
-      <tr>
-          <td><code>events</code></td>
-          <td>LangChain 级事件（on_tool_end 等）</td>
-          <td>触发工具调用结束回调</td>
-      </tr>
-  </tbody>
-</table>
-<p><code>useStream</code> Hook 通过回调函数分发这些事件：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#75715e">// frontend/src/core/threads/hooks.ts
-</span></span></span><span style="display:flex;"><span><span style="color:#a6e22e">onUpdateEvent</span>(<span style="color:#a6e22e">data</span>) {
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 从 updates 事件中提取新标题，立即更新线程列表
-</span></span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 用户无需刷新就能看到标题变化
-</span></span></span><span style="display:flex;"><span>},
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">onCustomEvent</span>(<span style="color:#a6e22e">event</span>) {
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 子 Agent 的进度事件 → SubtaskCard 组件实时更新
-</span></span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">event</span>.<span style="color:#66d9ef">type</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#34;task_running&#34;</span>) {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">updateSubtask</span>({ <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">event.task_id</span>, <span style="color:#a6e22e">latestMessage</span>: <span style="color:#66d9ef">event.message</span> });
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>},
-</span></span></code></pre></div><p>最终，<code>thread.isLoading</code> 变为 <code>false</code>，optimistic message 被清除，用户看到完整的 AI 回复。</p>
-<h2 id="子-agent循环中的循环">子 Agent：循环中的循环<a hidden class="anchor" aria-hidden="true" href="#子-agent循环中的循环">#</a></h2>
-<p>如果 LLM 在某一轮调用了 <code>task</code> 工具（需要 <code>subagent_enabled=True</code>，即 Ultra 模式），流程会分叉：</p>
-<div class="mermaid">
-  sequenceDiagram
-    participant Main as 主 Agent Loop
-    participant TaskTool as task_tool
-    participant Pool as 线程池 (3+3)
-    participant Sub as 子 Agent Loop
-    participant Browser as 浏览器
-
-    Main->>TaskTool: tool_call: task(description="...")
-    TaskTool->>Pool: execute_async(prompt)
-    TaskTool-->>Browser: SSE custom: task_started
-
-    Pool->>Sub: 创建子 Agent（thinking=off, 工具受限）
-    Sub->>Sub: 自己的 model→tools→model 循环
-
-    loop 每 5 秒
-        TaskTool->>Pool: 轮询状态
-        Pool-->>TaskTool: 中间结果
-        TaskTool-->>Browser: SSE custom: task_running
-    end
-
-    Sub-->>Pool: SubagentResult
-    Pool-->>TaskTool: 完成
-    TaskTool-->>Browser: SSE custom: task_completed
-    TaskTool-->>Main: ToolMessage: "Task Succeeded. Result: ..."
-    Main->>Main: 继续主循环
-</div>
-<p>子 Agent 运行在独立的线程池中（3 个调度线程 + 3 个执行线程），有自己的 Agent Loop，但配置大幅精简：thinking 强制关闭、没有记忆注入、没有技能目录、工具集经过过滤（去掉 <code>task</code>、<code>ask_clarification</code>）。主 Agent 每 5 秒轮询子 Agent 状态，通过 <code>stream_writer</code> 发射 custom 事件，浏览器端的 <code>SubtaskCard</code> 组件随之更新。</p>
-<h2 id="完整链路一览">完整链路一览<a hidden class="anchor" aria-hidden="true" href="#完整链路一览">#</a></h2>
-<p>把以上所有阶段串起来：</p>
-<pre tabindex="0"><code>用户 Enter
+</code></pre><p><code>read_file</code> 正常执行，返回文件内容作为 ToolMessage。</p><p><strong>Step 6: 回到 before_model</strong></p><p>ToolMessage 进入消息历史，循环回到 Step 1。这次 LLM 有了文件内容，生成一个不含 tool_calls 的文本回复。路由判定"无 tool_calls"，退出循环进入 <code>after_agent</code>。</p><p><strong>Step 7: after_agent</strong></p><ul><li><code>MemoryMiddleware</code>：把这轮对话入队，30 秒防抖后异步更新 <code>memory.json</code></li><li><code>SandboxMiddleware</code>：释放沙箱资源</li></ul><h2 id=阶段四流式事件回到浏览器>阶段四：流式事件回到浏览器<a hidden class=anchor aria-hidden=true href=#阶段四流式事件回到浏览器>#</a></h2><p>Agent Loop 的每个节点转换都会生成 SSE 事件。前端通过 5 种 <code>stream_mode</code> 并行接收：</p><table><thead><tr><th>stream_mode</th><th>内容</th><th>前端处理</th></tr></thead><tbody><tr><td><code>values</code></td><td>完整状态快照（messages, title, artifacts, todos）</td><td>更新 thread 对象</td></tr><tr><td><code>messages-tuple</code></td><td>流式消息片段 <code>[AIMessage, metadata]</code></td><td>Streamdown 组件逐字渲染 Markdown</td></tr><tr><td><code>updates</code></td><td>节点级增量更新 <code>{node: partial_state}</code></td><td>更新标题到线程列表缓存</td></tr><tr><td><code>custom</code></td><td>自定义事件（task_started, task_running, task_completed）</td><td>驱动 SubtaskCard 组件</td></tr><tr><td><code>events</code></td><td>LangChain 级事件（on_tool_end 等）</td><td>触发工具调用结束回调</td></tr></tbody></table><p><code>useStream</code> Hook 通过回调函数分发这些事件：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-ts data-lang=ts><span style=display:flex><span><span style=color:#75715e>// frontend/src/core/threads/hooks.ts
+</span></span></span><span style=display:flex><span><span style=color:#a6e22e>onUpdateEvent</span>(<span style=color:#a6e22e>data</span>) {
+</span></span><span style=display:flex><span>  <span style=color:#75715e>// 从 updates 事件中提取新标题，立即更新线程列表
+</span></span></span><span style=display:flex><span>  <span style=color:#75715e>// 用户无需刷新就能看到标题变化
+</span></span></span><span style=display:flex><span>},
+</span></span><span style=display:flex><span><span style=color:#a6e22e>onCustomEvent</span>(<span style=color:#a6e22e>event</span>) {
+</span></span><span style=display:flex><span>  <span style=color:#75715e>// 子 Agent 的进度事件 → SubtaskCard 组件实时更新
+</span></span></span><span style=display:flex><span>  <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>event</span>.<span style=color:#66d9ef>type</span> <span style=color:#f92672>===</span> <span style=color:#e6db74>&#34;task_running&#34;</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>updateSubtask</span>({ <span style=color:#a6e22e>id</span>: <span style=color:#66d9ef>event.task_id</span>, <span style=color:#a6e22e>latestMessage</span>: <span style=color:#66d9ef>event.message</span> });
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>},
+</span></span></code></pre></div><p>最终，<code>thread.isLoading</code> 变为 <code>false</code>，optimistic message 被清除，用户看到完整的 AI 回复。</p><h2 id=子-agent循环中的循环>子 Agent：循环中的循环<a hidden class=anchor aria-hidden=true href=#子-agent循环中的循环>#</a></h2><p>如果 LLM 在某一轮调用了 <code>task</code> 工具（需要 <code>subagent_enabled=True</code>，即 Ultra 模式），流程会分叉：</p><div class=mermaid>sequenceDiagram
+participant Main as 主 Agent Loop
+participant TaskTool as task_tool
+participant Pool as 线程池 (3+3)
+participant Sub as 子 Agent Loop
+participant Browser as 浏览器
+Main->>TaskTool: tool_call: task(description="...")
+TaskTool->>Pool: execute_async(prompt)
+TaskTool-->>Browser: SSE custom: task_started
+Pool->>Sub: 创建子 Agent（thinking=off, 工具受限）
+Sub->>Sub: 自己的 model→tools→model 循环
+loop 每 5 秒
+TaskTool->>Pool: 轮询状态
+Pool-->>TaskTool: 中间结果
+TaskTool-->>Browser: SSE custom: task_running
+end
+Sub-->>Pool: SubagentResult
+Pool-->>TaskTool: 完成
+TaskTool-->>Browser: SSE custom: task_completed
+TaskTool-->>Main: ToolMessage: "Task Succeeded. Result: ..."
+Main->>Main: 继续主循环</div><p>子 Agent 运行在独立的线程池中（3 个调度线程 + 3 个执行线程），有自己的 Agent Loop，但配置大幅精简：thinking 强制关闭、没有记忆注入、没有技能目录、工具集经过过滤（去掉 <code>task</code>、<code>ask_clarification</code>）。主 Agent 每 5 秒轮询子 Agent 状态，通过 <code>stream_writer</code> 发射 custom 事件，浏览器端的 <code>SubtaskCard</code> 组件随之更新。</p><h2 id=完整链路一览>完整链路一览<a hidden class=anchor aria-hidden=true href=#完整链路一览>#</a></h2><p>把以上所有阶段串起来：</p><pre tabindex=0><code>用户 Enter
   → React handleSubmit()
     → LangGraph SDK thread.submit()
       → fetch POST {origin}/api/langgraph/threads/{id}/runs/stream
@@ -530,141 +243,16 @@ ClarificationMiddleware
                     → [after_agent] Memory → Sandbox释放
                       → SSE 事件流 → nginx → Browser
                         → StreamManager 分发 → React re-render → 用户看到回复
-</code></pre><p>下一篇我们放大 Agent Loop 内部最核心的部分——系统提示词是如何被动态组装的，以及 DeerFlow 如何管理上下文窗口不被撑爆。</p>
-
-
-  </div>
-
-  <footer class="post-footer">
-    <ul class="post-tags">
-      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
-      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
-      <li><a href="http://localhost:1313/tags/deerflow/">DeerFlow</a></li>
-    </ul>
-  </footer>
-</article>
-    </main>
-    
-<footer class="footer">
-        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
-
-    <span>
-        Powered by
-        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
-        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
-    </span>
-</footer>
-<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
-        <path d="M12 6H0l6-6z" />
-    </svg>
-</a>
-<script type="module">
+</code></pre><p>下一篇我们放大 Agent Loop 内部最核心的部分——系统提示词是如何被动态组装的，以及 DeerFlow 如何管理上下文窗口不被撑爆。</p></div><footer class=post-footer><ul class=post-tags><li><a href=https://linger-ai.github.io/tags/ai/>AI</a></li><li><a href=https://linger-ai.github.io/tags/%E6%8A%80%E6%9C%AF/>技术</a></li><li><a href=https://linger-ai.github.io/tags/deerflow/>DeerFlow</a></li></ul></footer></article></main><footer class=footer><span>&copy; 2026 <a href=https://linger-ai.github.io/>Linger-AI Space</a></span> ·
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+<a href=https://github.com/adityatelange/hugo-PaperMod/ rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg viewBox="0 0 12 6" fill="currentColor"><path d="M12 6H0l6-6z"/></svg>
+</a><script type=module>
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
     mermaid.initialize({ 
         startOnLoad: true,
         theme: 'default' 
     });
-</script>
-
-
-<div style="
-    text-align: center;
-    font-size: 12px;
-    color: var(--secondary);
-    margin-top: 10px;
-    opacity: 0.8;">
-
-    
-    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-
-    
-    <span id="busuanzi_container_site_pv">
-        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
-    </span>
-    &nbsp;·&nbsp;
-    <span id="busuanzi_container_site_uv">
-        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
-    </span>
-</div>
-
-
-<script>
-(function() {
-    var el = document.getElementById('busuanzi_container_page_pv');
-    if (!el) return;
-    var check = setInterval(function() {
-        var val = document.getElementById('busuanzi_value_page_pv');
-        if (val && val.innerText !== '') {
-            el.style.display = 'inline';
-            clearInterval(check);
-        }
-    }, 200);
-    setTimeout(function() { clearInterval(check); }, 10000);
-})();
-</script>
-
-
-<script>
-    let menu = document.getElementById('menu');
-    if (menu) {
-        
-        const scrollPosition = localStorage.getItem("menu-scroll-position");
-        if (scrollPosition) {
-            menu.scrollLeft = parseInt(scrollPosition, 10);
-        }
-        
-        menu.onscroll = function () {
-            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
-        }
-    }
-
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener("click", function (e) {
-            e.preventDefault();
-            var id = this.getAttribute("href").substr(1);
-            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
-                    behavior: "smooth"
-                });
-            } else {
-                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
-            }
-            if (id === "top") {
-                history.replaceState(null, null, " ");
-            } else {
-                history.pushState(null, null, `#${id}`);
-            }
-        });
-    });
-
-</script>
-<script>
-    var mybutton = document.getElementById("top-link");
-    window.onscroll = function () {
-        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
-            mybutton.style.visibility = "visible";
-            mybutton.style.opacity = "1";
-        } else {
-            mybutton.style.visibility = "hidden";
-            mybutton.style.opacity = "0";
-        }
-    };
-
-</script>
-<script>
-    document.getElementById("theme-toggle").addEventListener("click", () => {
-        const html = document.querySelector("html");
-        if (html.dataset.theme === "dark") {
-            html.dataset.theme = 'light';
-            localStorage.setItem("pref-theme", 'light');
-        } else {
-            html.dataset.theme = 'dark';
-            localStorage.setItem("pref-theme", 'dark');
-        }
-    })
-
-</script>
-</body>
-
-</html>
+</script><div style=text-align:center;font-size:12px;color:var(--secondary);margin-top:10px;opacity:.8><script async src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><span id=busuanzi_container_site_pv>总访问 <span id=busuanzi_value_site_pv style=font-weight:700></span> 次
+</span>&nbsp;·&nbsp;
+<span id=busuanzi_container_site_uv>访客 <span id=busuanzi_value_site_uv style=font-weight:700></span> 人</span></div><script>(function(){var n,s,o,t=document.getElementById("busuanzi_container_page_pv");if(!t)return;function e(){var e=document.getElementById("busuanzi_value_page_pv");return!!(e&&e.innerText&&e.innerText!=="0"&&e.innerText!=="")&&(t.style.display="inline",!0)}if(e())return;n=0,s=setInterval(function(){if(n++,e())clearInterval(s);else if(n>50){clearInterval(s);var o=document.getElementById("busuanzi_value_page_pv");o&&(o.innerText="0",t.style.display="inline")}},200),window.busuanzi?e():(o=document.querySelector('script[src*="busuanzi"]'),o&&o.addEventListener("load",e))})()</script><script>let menu=document.getElementById("menu");if(menu){const e=localStorage.getItem("menu-scroll-position");e&&(menu.scrollLeft=parseInt(e,10)),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}}document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{const e=document.querySelector("html");e.dataset.theme==="dark"?(e.dataset.theme="light",localStorage.setItem("pref-theme","light")):(e.dataset.theme="dark",localStorage.setItem("pref-theme","dark"))})</script></body></html>

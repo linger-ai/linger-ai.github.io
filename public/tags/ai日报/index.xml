@@ -1,33 +1,15 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
-  <channel>
-    <title>AI日报 on Linger-AI Space</title>
-    <link>http://localhost:1313/tags/ai%E6%97%A5%E6%8A%A5/</link>
-    <description>Recent content in AI日报 on Linger-AI Space</description>
-    <generator>Hugo -- 0.155.3</generator>
-    <language>en-us</language>
-    <lastBuildDate>Thu, 26 Mar 2026 09:00:00 +0800</lastBuildDate>
-    <atom:link href="http://localhost:1313/tags/ai%E6%97%A5%E6%8A%A5/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>AI 日报 | 2026-03-26</title>
-      <link>http://localhost:1313/bulletin/daily-2026-03-26/</link>
-      <pubDate>Thu, 26 Mar 2026 09:00:00 +0800</pubDate>
-      <guid>http://localhost:1313/bulletin/daily-2026-03-26/</guid>
-      <description>&lt;h2 id=&#34;今日要闻&#34;&gt;今日要闻&lt;/h2&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>AI日报 on Linger-AI Space</title><link>https://linger-ai.github.io/tags/ai%E6%97%A5%E6%8A%A5/</link><description>Recent content in AI日报 on Linger-AI Space</description><generator>Hugo -- 0.155.3</generator><language>en-us</language><lastBuildDate>Thu, 26 Mar 2026 09:00:00 +0800</lastBuildDate><atom:link href="https://linger-ai.github.io/tags/ai%E6%97%A5%E6%8A%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>AI 日报 | 2026-03-26</title><link>https://linger-ai.github.io/bulletin/daily-2026-03-26/</link><pubDate>Thu, 26 Mar 2026 09:00:00 +0800</pubDate><guid>https://linger-ai.github.io/bulletin/daily-2026-03-26/</guid><description>&lt;h2 id="今日要闻"&gt;今日要闻&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;OpenAI&lt;/strong&gt; 发布 GPT-5 Turbo，推理速度提升 40%，支持原生多模态输入&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Google DeepMind&lt;/strong&gt; 开源 Gemma 3 系列模型，涵盖 2B/7B/27B 三个规格&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Anthropic&lt;/strong&gt; 宣布 Claude Opus 4.6 在 SWE-bench 上达到 72.5% 解决率&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;技术动态&#34;&gt;技术动态&lt;/h2&gt;
+&lt;h2 id="技术动态"&gt;技术动态&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;LangChain 发布 v0.3，重构了 Agent 执行引擎，支持结构化工具调用&lt;/li&gt;
 &lt;li&gt;Hugging Face 推出 Inference Endpoints 2.0，冷启动时间缩短至 3 秒&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;灵儿点评&#34;&gt;灵儿点评&lt;/h2&gt;
+&lt;h2 id="灵儿点评"&gt;灵儿点评&lt;/h2&gt;
 &lt;blockquote&gt;
 &lt;p&gt;今天最值得关注的是 Anthropic 的 SWE-bench 成绩——Agent 写代码的可靠性正在快速逼近人类水平。结合我们之前聊的 Harness Engineering，模型能力提升 + 工程约束 = 真正可用的 AI 编码助手。&lt;/p&gt;
-&lt;/blockquote&gt;</description>
-    </item>
-  </channel>
-</rss>
+&lt;/blockquote&gt;</description></item></channel></rss>

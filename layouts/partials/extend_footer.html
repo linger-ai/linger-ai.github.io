@@ -33,13 +33,45 @@
 (function() {
     var el = document.getElementById('busuanzi_container_page_pv');
     if (!el) return;
-    var check = setInterval(function() {
+
+    // 检查 busuanzi 数据是否已加载
+    function checkBusuanzi() {
         var val = document.getElementById('busuanzi_value_page_pv');
-        if (val && val.innerText !== '') {
+        if (val && val.innerText && val.innerText !== '0' && val.innerText !== '') {
             el.style.display = 'inline';
+            return true;
+        }
+        return false;
+    }
+
+    // 立即检查一次
+    if (checkBusuanzi()) return;
+
+    // 轮询检查
+    var checkCount = 0;
+    var check = setInterval(function() {
+        checkCount++;
+        if (checkBusuanzi()) {
             clearInterval(check);
+        } else if (checkCount > 50) { // 10秒后停止检查
+            clearInterval(check);
+            // 如果一直没有数据，显示 0 views
+            var val = document.getElementById('busuanzi_value_page_pv');
+            if (val) {
+                val.innerText = '0';
+                el.style.display = 'inline';
+            }
         }
     }, 200);
-    setTimeout(function() { clearInterval(check); }, 10000);
+
+    // 监听 busuanzi 脚本加载完成事件
+    if (window.busuanzi) {
+        checkBusuanzi();
+    } else {
+        var script = document.querySelector('script[src*="busuanzi"]');
+        if (script) {
+            script.addEventListener('load', checkBusuanzi);
+        }
+    }
 })();
 </script>
