@@ -7,24 +7,37 @@
 <meta name="robots" content="noindex, nofollow">
 <title>DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期 | Linger-AI Space</title>
 <meta name="keywords" content="AI, 技术, DeerFlow">
-<meta name="description" content="DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph &#43; FastAPI &#43; Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
+<meta name="description" content="
+DeerFlow 源码解析系列目录
+
+导读：AI Agent 框架的选择与 DeerFlow 的定位
+第一篇（本文）：一个 Chat 请求的完整生命周期
+第二篇：系统提示词工程与上下文架构
+第三篇：主从 Agent 协作与安全边界
+第四篇：Skills、MCP 与工具生态
+第五篇：沙箱隔离与代码执行
+第六篇：长期记忆、IM 通道与多端接入
+第七篇：Harness Engineering 工程实践
+
+
+
+DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph &#43; FastAPI &#43; Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
 第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？
 四个服务，各司其职
 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：
-┌─────────────┐
-│   Browser    │
-└──────┬──────┘
-       │ :2026
-┌──────▼──────┐
-│    nginx     │  ← 唯一入口
-├─────────────┤
-│ /api/langgraph/*  → LangGraph Server (:2024)   Agent 运行时
-│ /api/models       → Gateway (:8001)             配置/管理 API
-│ /api/skills       → Gateway (:8001)
-│ /api/threads/*/uploads → Gateway (:8001)
-│ /*                → Frontend (:3000)            Next.js UI
-└─────────────┘
-一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&quot;管理侧&quot;的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。">
+
+一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&quot;管理侧&quot;的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。
+阶段一：前端发起请求
+用户按下 Enter
+入口在 ChatPage 组件。用户提交消息后，handleSubmit 把消息转交给 sendMessage：
+// frontend/src/app/workspace/chats/[thread_id]/page.tsx:64
+const handleSubmit = useCallback(
+  (message: PromptInputMessage) =&gt; {
+    void sendMessage(threadId, message);
+  },
+  [sendMessage, threadId],
+);
+sendMessage 来自 useThreadStream 这个自定义 Hook，它内部使用了 LangGraph SDK 提供的 useStream。">
 <meta name="author" content="Linger">
 <link rel="canonical" href="http://localhost:1313/posts/deerflow-01-chat-request-lifecycle/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
@@ -156,28 +169,30 @@ DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的�
     </h1>
     <div class="post-meta">
 
-<span title='2026-03-28 10:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1094 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+<span title='2026-03-28 10:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1069 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
 
 </div>
   </header> 
-  <div class="post-content"><p>DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。</p>
+  <div class="post-content"><blockquote>
+<p><strong>DeerFlow 源码解析系列目录</strong></p>
+<ul>
+<li><a href="/posts/deerflow-00-introduction">导读：AI Agent 框架的选择与 DeerFlow 的定位</a></li>
+<li><strong>第一篇（本文）</strong>：一个 Chat 请求的完整生命周期</li>
+<li><a href="/posts/deerflow-02-prompt-engineering-context">第二篇：系统提示词工程与上下文架构</a></li>
+<li><a href="/posts/deerflow-03-multi-agent-collaboration">第三篇：主从 Agent 协作与安全边界</a></li>
+<li><a href="/posts/deerflow-04-skills-mcp-tools">第四篇：Skills、MCP 与工具生态</a></li>
+<li><a href="/posts/deerflow-05-sandbox-isolation">第五篇：沙箱隔离与代码执行</a></li>
+<li><a href="/posts/deerflow-06-memory-im-channels">第六篇：长期记忆、IM 通道与多端接入</a></li>
+<li><a href="/posts/deerflow-07-harness-engineering">第七篇：Harness Engineering 工程实践</a></li>
+</ul>
+</blockquote>
+<hr>
+<p>DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。</p>
 <p>第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？</p>
 <h2 id="四个服务各司其职">四个服务，各司其职<a hidden class="anchor" aria-hidden="true" href="#四个服务各司其职">#</a></h2>
 <p>DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：</p>
-<pre tabindex="0"><code>┌─────────────┐
-│   Browser    │
-└──────┬──────┘
-       │ :2026
-┌──────▼──────┐
-│    nginx     │  ← 唯一入口
-├─────────────┤
-│ /api/langgraph/*  → LangGraph Server (:2024)   Agent 运行时
-│ /api/models       → Gateway (:8001)             配置/管理 API
-│ /api/skills       → Gateway (:8001)
-│ /api/threads/*/uploads → Gateway (:8001)
-│ /*                → Frontend (:3000)            Next.js UI
-└─────────────┘
-</code></pre><p>一个容易产生误解的地方是：<strong>Chat 的流式传输不经过 Gateway</strong>。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&quot;管理侧&quot;的 API。Chat 消息直接走 <code>nginx → LangGraph Server</code>，Gateway 完全不参与。</p>
+<p><img alt="dac8cca4cbf99a8cbcdd48.png" loading="lazy" src="https://chenxqblog-1258795182.cos.ap-guangzhou.myqcloud.com/obsidian/dac8cca4cbf99a8cbcdd48.png"></p>
+<p>一个容易产生误解的地方是：<strong>Chat 的流式传输不经过 Gateway</strong>。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&quot;管理侧&quot;的 API。Chat 消息直接走 <code>nginx → LangGraph Server</code>，Gateway 完全不参与。</p>
 <h2 id="阶段一前端发起请求">阶段一：前端发起请求<a hidden class="anchor" aria-hidden="true" href="#阶段一前端发起请求">#</a></h2>
 <h3 id="用户按下-enter">用户按下 Enter<a hidden class="anchor" aria-hidden="true" href="#用户按下-enter">#</a></h3>
 <p>入口在 <code>ChatPage</code> 组件。用户提交消息后，<code>handleSubmit</code> 把消息转交给 <code>sendMessage</code>：</p>
@@ -338,7 +353,7 @@ DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的�
   </tbody>
 </table>
 <h3 id="4-组装系统提示词">4. 组装系统提示词<a hidden class="anchor" aria-hidden="true" href="#4-组装系统提示词">#</a></h3>
-<p><code>apply_prompt_template()</code> 根据配置动态拼接系统提示词。这不是一个静态字符串，而是由 12 个可选 section 组成的条件组装结果。（第 2 篇会详细分析。）</p>
+<p><code>apply_prompt_template()</code> 根据配置动态拼接系统提示词——由 12 个可选 section 条件组装，而非一个静态字符串。（第 2 篇会详细分析。）</p>
 <h3 id="5-编译-stategraph">5. 编译 StateGraph<a hidden class="anchor" aria-hidden="true" href="#5-编译-stategraph">#</a></h3>
 <p>四个组件准备好后，调用 LangChain 的 <code>create_agent()</code> 编译成 LangGraph 的 <code>StateGraph</code>：</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/lead_agent/agent.py:337</span>

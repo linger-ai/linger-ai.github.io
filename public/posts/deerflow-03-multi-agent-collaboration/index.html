@@ -7,7 +7,21 @@
 <meta name="robots" content="noindex, nofollow">
 <title>DeerFlow 源码解析（三）：主从 Agent 协作与安全边界 | Linger-AI Space</title>
 <meta name="keywords" content="AI, 技术, DeerFlow">
-<meta name="description" content="上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。
+<meta name="description" content="
+DeerFlow 源码解析系列目录
+
+导读：AI Agent 框架的选择与 DeerFlow 的定位
+第一篇：一个 Chat 请求的完整生命周期
+第二篇：系统提示词工程与上下文架构
+第三篇（本文）：主从 Agent 协作与安全边界
+第四篇：Skills、MCP 与工具生态
+第五篇：沙箱隔离与代码执行
+第六篇：长期记忆、IM 通道与多端接入
+第七篇：Harness Engineering 工程实践
+
+
+
+上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。
 两层扁平架构，不是递归树
 DeerFlow 的 Agent 拓扑是严格的两层结构：一个主 Agent（Lead Agent）协调零到多个子 Agent（Subagent）。子 Agent 不能再创建子 Agent。
 
@@ -159,11 +173,25 @@ DeerFlow 的 Agent 拓扑是严格的两层结构：一个主 Agent（Lead Agent
     </h1>
     <div class="post-meta">
 
-<span title='2026-03-28 12:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1453 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+<span title='2026-03-28 12:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1475 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
 
 </div>
   </header> 
-  <div class="post-content"><p>上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。</p>
+  <div class="post-content"><blockquote>
+<p><strong>DeerFlow 源码解析系列目录</strong></p>
+<ul>
+<li><a href="/posts/deerflow-00-introduction">导读：AI Agent 框架的选择与 DeerFlow 的定位</a></li>
+<li><a href="/posts/deerflow-01-chat-request-lifecycle">第一篇：一个 Chat 请求的完整生命周期</a></li>
+<li><a href="/posts/deerflow-02-prompt-engineering-context">第二篇：系统提示词工程与上下文架构</a></li>
+<li><strong>第三篇（本文）</strong>：主从 Agent 协作与安全边界</li>
+<li><a href="/posts/deerflow-04-skills-mcp-tools">第四篇：Skills、MCP 与工具生态</a></li>
+<li><a href="/posts/deerflow-05-sandbox-isolation">第五篇：沙箱隔离与代码执行</a></li>
+<li><a href="/posts/deerflow-06-memory-im-channels">第六篇：长期记忆、IM 通道与多端接入</a></li>
+<li><a href="/posts/deerflow-07-harness-engineering">第七篇：Harness Engineering 工程实践</a></li>
+</ul>
+</blockquote>
+<hr>
+<p>上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。</p>
 <h2 id="两层扁平架构不是递归树">两层扁平架构，不是递归树<a hidden class="anchor" aria-hidden="true" href="#两层扁平架构不是递归树">#</a></h2>
 <p>DeerFlow 的 Agent 拓扑是严格的两层结构：一个主 Agent（Lead Agent）协调零到多个子 Agent（Subagent）。子 Agent 不能再创建子 Agent。</p>
 <div class="mermaid">

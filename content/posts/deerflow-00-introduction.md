@@ -1,5 +1,5 @@
 ---
-title: "DeerFlow 源码解析（〇）：导读——AI Agent 框架的选择与 DeerFlow 的定位"
+title: "DeerFlow 源码解析（0）：导读——AI Agent 框架的选择与 DeerFlow 的定位"
 date: 2026-03-28T09:00:00+08:00
 draft: false
 tags:
@@ -21,7 +21,7 @@ tags:
 
 ---
 
-2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 Go 证明了轻量 TUI 的可行性。
+2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。
 
 DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。
 
@@ -29,29 +29,15 @@ DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做�
 
 把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：
 
-```
-┌─────────────────────────────────────────────────────┐
-│  应用层 (Application)                                │
-│  Claude Code · OpenCode/Crush · DeerFlow            │
-│  → 直接面向终端用户，开箱即用                          │
-├─────────────────────────────────────────────────────┤
-│  编排层 (Orchestration)                              │
-│  CrewAI · AutoGen · OpenAI Agents SDK               │
-│  → 提供多 Agent 协作模式，用户组装自己的应用            │
-├─────────────────────────────────────────────────────┤
-│  基础设施层 (Infrastructure)                          │
-│  LangGraph                                          │
-│  → 状态机 + 持久化执行，不关心 Agent 怎么用            │
-└─────────────────────────────────────────────────────┘
-```
+![image.png](https://chenxqblog-1258795182.cos.ap-guangzhou.myqcloud.com/obsidian/image.png)
 
 **基础设施层**只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于"Agent 应该长什么样"的意见。你拿到的是一堆积木，怎么搭是你的事。
 
 **编排层**是竞争最激烈的区间。CrewAI 用"角色扮演"隐喻（Agent 有 role/goal/backstory），OpenAI Agents SDK 走极简路线（Agent + Handoff + Tool 三个概念搞定一切），AutoGen 从微软研究院出发，强调分布式运行时和跨语言支持。它们的共同点是：给你组装多 Agent 系统的脚手架，但最终产品需要你自己构建。
 
-**应用层**是直接面向终端用户的完整产品。Claude Code 是终端编程助手的标杆，OpenCode（现已归档，后继者为 Charm 团队的 Crush）用 Go 做了一个漂亮的 TUI 替代方案。DeerFlow 在这一层比较特殊——它既是一个可以直接使用的全栈应用（带 Web UI、IM 集成），又把底层的 Agent 运行时（deerflow-harness）设计成了一个可独立发布的 Python 包。
+**应用层**是直接面向终端用户的完整产品。Claude Code 是终端编程助手的标杆，OpenCode 是 100% 开源的终端编程助手（TypeScript/Bun 编写，支持多模型和 LSP）。DeerFlow 在这一层比较特殊——它既是一个可以直接使用的全栈应用（带 Web UI、IM 集成），又把底层的 Agent 运行时（deerflow-harness）设计成了一个可独立发布的 Python 包。
 
-## 二、六个框架的正面对比
+## 二、七个框架的正面对比
 
 ### 2.1 LangGraph——地基
 
@@ -103,7 +89,7 @@ result = crew.kickoff()
 
 两种执行模式：`sequential`（按顺序执行）和 `hierarchical`（自动指派 manager Agent 做任务分配）。2025 年还加入了 `Flow` 系统，用装饰器（`@start`、`@listen`、`@router`）做事件驱动的精确流程控制。
 
-CrewAI 的 47k star 和 DeepLearning.AI 课程说明它在"上手友好度"上做得很好。但在工程深度上，它缺少 DeerFlow 的中间件链（CrewAI 没有等价物）、沙箱隔离（只能靠外部工具）和 IM 集成。
+CrewAI 在 2026 年初已突破 80k star，DeepLearning.AI 课程和活跃的社区说明它在"上手友好度"上做得很好。但在工程深度上，它缺少 DeerFlow 的中间件链（CrewAI 没有等价物）、沙箱隔离（只能靠外部工具）和 IM 集成。
 
 ### 2.4 AutoGen——学术底色
 
@@ -115,7 +101,7 @@ AutoGen 出自微软研究院，身上带着明显的学术气质。它有三层
 
 独特之处是**跨语言支持**（Python + .NET + TypeScript）和**分布式运行时**（通过 gRPC）。它的 `Magentic-One` 是一个参考实现——一个由 5 个 Agent 组成的团队，能做网页浏览、代码执行、文件处理。
 
-不过 AutoGen 的现状需要注意：微软已经宣布了 [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) 作为继任者，AutoGen 进入维护模式。
+不过 AutoGen 的现状需要注意：微软曾宣布 [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) 作为新的方向，但截至 2026 年 3 月，AutoGen 仍在积极开发中（最新更新于 3 月底），两个项目处于并行演进状态。
 
 ### 2.5 Claude Code——产品标杆
 
@@ -129,34 +115,41 @@ Claude Code 是一个产品，不是框架。终端 CLI、VS Code 插件、JetBr
 
 Claude Code 的局限在于**单模型绑定**（只能用 Claude），以及**不可自托管**（Agent 逻辑是闭源的，Agent SDK 提供了编程接口但运行时仍然依赖 Anthropic 的基础设施）。
 
-### 2.6 OpenCode——轻量终端
+### 2.6 OpenCode——开源终端编程助手
 
-OpenCode 用 Go 写了一个终端 AI 编程助手，特点是漂亮的 TUI（基于 Charm 团队的 Bubble Tea 框架）和多模型支持（OpenAI、Anthropic、Gemini、Groq、Azure、GitHub Copilot、本地模型）。
+OpenCode 是一个 100% 开源的 AI 编程助手，用 TypeScript 编写，基于 Bun 运行时。与 Claude Code 类似，它提供了终端 TUI 界面，但有几个关键差异：
 
-它在 2025 年 9 月归档，开发转移到 Charm 团队的 [Crush](https://github.com/charmbracelet/crush) 项目继续。值得一提的是它的 **LSP 集成**——直接对接语言服务器获取代码诊断信息，这比简单的"读文件 + grep"要精确得多。
+- **多模型支持**：不绑定单一供应商，支持 Claude、OpenAI、Google 以及本地模型
+- **LSP 集成**：直接对接语言服务器获取代码诊断信息，比简单的"读文件 + grep"更精确
+- **Client/Server 架构**：支持远程驱动，TUI 只是可能的客户端之一
+- **Plan/Build 双模式**：按 `Tab` 键在只读分析模式（plan）和完整开发模式（build）之间切换
+
+OpenCode 也有 Desktop App 版本，在终端体验上投入了大量精力（开发团队包括 neovim 用户和 terminal.shop 的创作者）。
+
+### 2.7 Anthropic Claude Agent SDK——Claude Code 的可编程接口
+
+Anthropic 在 2025 年中推出了 Claude Agent SDK，与 OpenAI Agents SDK 类似，提供 `Agent` + `Runner` 的极简 API，把 Claude Code 的核心能力封装成可编程接口。它与 OpenAI SDK 的主要差异在于深度集成 Anthropic 的模型能力（如 extended thinking、computer use 等），但两者在抽象层级上属于同一类编排层工具。
 
 ## 三、DeerFlow 到底在做什么不同的事
 
 把六个框架摆在一起后，DeerFlow 的定位就清晰了：
 
-| 维度 | LangGraph | OpenAI SDK | CrewAI | AutoGen | Claude Code | DeerFlow |
-|------|-----------|------------|--------|---------|-------------|----------|
-| 抽象层级 | 基础设施 | 编排 | 编排 | 编排 | 应用 | **基础设施 + 应用** |
-| 多 Agent | 手动组装 | Handoff | Crew | Group Chat | 内置子 Agent | 主从隔离 |
-| 中间件 | 无 | 无 | 无 | 无 | Hooks | **12 个中间件** |
-| 沙箱 | 无 | 无 | 无 | Docker | 无 | **Docker/K8s** |
-| 长期记忆 | Checkpointer | Sessions | 可选 | 无 | CLAUDE.md | **LLM 提取** |
-| 提示词管理 | 无 | 静态 instructions | 静态 backstory | 无 | CLAUDE.md | **12 条件动态组装** |
-| IM 集成 | 无 | 无 | 无 | 无 | Slack | **飞书/Slack/TG** |
-| Web UI | LangSmith | 无 | Control Plane | Studio | Desktop/Web | **Next.js** |
-| 模型无关 | 是 | 是 | 是 | 是 | **否** | 是 |
-| 可独立部署 | 库 | 库 | 库+CLI | 库+Studio | 产品 | **全栈应用** |
+| 维度 | LangGraph | OpenAI/Claude SDK | CrewAI | AutoGen | Claude Code | OpenCode | DeerFlow |
+|------|-----------|------------|--------|---------|-------------|------------------|----------|----------|
+| 抽象层级 | 基础设施 | 编排 | 编排 | 编排 | 应用 | 应用 | **基础设施 + 应用** |
+| 多 Agent | 手动组装 | Handoff | Crew | Group Chat | 内置子 Agent | 子 Agent | 主从隔离 |
+| 中间件 | 无 | 无 | 无 | 无 | Hooks | 无 | **12 个中间件** |
+| 沙箱 | 无 | 无 | 无 | Docker | 无 | 无 | **Docker/K8s** |
+| 长期记忆 | Checkpointer | Sessions | 可选 | 无 | CLAUDE.md | 无 | **LLM 提取** |
+| 提示词管理 | 无 | 静态 instructions | 静态 backstory | 无 | CLAUDE.md | 静态 | **12 条件动态组装** |
+| IM 集成 | 无 | 无 | 无 | 无 | Slack | 无 | **飞书/Slack/TG** |
+| Web UI | LangSmith | 无 | Control Plane | Studio | Desktop/Web | Desktop | **Next.js** |
+| 模型无关 | 是 | 是 | 是 | 是 | **否** | 是 | 是 |
+| 可独立部署 | 库 | 库 | 库+CLI | 库+Studio | 产品 | 产品 | **全栈应用** |
 
 几个关键差异：
 
-**1. Harness 模式**：DeerFlow 不把自己叫"框架"，而是叫 "harness"（线束/测试夹具）。这个词在硬件测试领域意味着"把被测对象完整包裹起来的辅助设备"。DeerFlow 把 LLM 当作"被测对象"，用中间件链、沙箱、记忆、工具系统把它完整包裹起来。这与 LangGraph 的"给你积木自己搭"和 CrewAI 的"给 Agent 一个人设"都不一样。
-
-**2. 中间件链**：在调研过的六个框架中，只有 DeerFlow 实现了真正的中间件链。12 个中间件分布在 5 个钩子点（`before_agent`、`after_agent`、`before_model`、`after_model`、`wrap_model_call`），覆盖了从线程数据初始化到上下文摘要、从 Plan Mode 到记忆更新的完整生命周期。其他框架要么没有中间件概念（LangGraph、OpenAI SDK、AutoGen），要么只有简单的 hooks（Claude Code）或装饰器（CrewAI Flow）。
+**1. 中间件链**：在调研过的七个框架中，只有 DeerFlow 实现了真正的中间件链。12 个中间件分布在 5 个钩子点（`before_agent`、`after_agent`、`before_model`、`after_model`、`wrap_model_call`），覆盖了从线程数据初始化到上下文摘要、从 Plan Mode 到记忆更新的完整生命周期。其他框架要么没有中间件概念（LangGraph、OpenAI/Claude SDK、AutoGen），要么只有简单的 hooks（Claude Code）或装饰器（CrewAI Flow）。
 
 **3. 沙箱即一等公民**：只有 AutoGen 和 DeerFlow 把代码执行沙箱作为一等公民。AutoGen 提供了 Docker 执行器；DeerFlow 在此基础上增加了虚拟路径系统（Agent 看到 `/mnt/user-data/`，实际映射到宿主机的 per-thread 目录）和 Kubernetes provisioner 支持。
 
@@ -169,9 +162,10 @@ OpenCode 用 Go 写了一个终端 AI 编程助手，特点是漂亮的 TUI（�
 选择 DeerFlow 做深度源码解析，不是因为它在所有维度上都"最好"。每个框架都有自己的甜蜜点：
 
 - 如果你需要最大控制力，用 **LangGraph**
-- 如果你需要最快上手，用 **OpenAI Agents SDK**
+- 如果你需要最快上手，用 **OpenAI Agents SDK** 或 **Claude Agent SDK**
 - 如果你需要角色化的多 Agent 团队，用 **CrewAI**
 - 如果你需要最好的编程助手体验，用 **Claude Code**
+- 如果你需要开源的终端编程助手，用 **OpenCode**
 
 选择 DeerFlow 是因为它在一个代码库里同时解决了多个工程问题，每个问题都值得拆开看：
 

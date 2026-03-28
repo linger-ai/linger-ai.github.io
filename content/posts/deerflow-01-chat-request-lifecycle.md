@@ -29,21 +29,7 @@ DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + 
 
 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：
 
-```
-┌─────────────┐
-│   Browser    │
-└──────┬──────┘
-       │ :2026
-┌──────▼──────┐
-│    nginx     │  ← 唯一入口
-├─────────────┤
-│ /api/langgraph/*  → LangGraph Server (:2024)   Agent 运行时
-│ /api/models       → Gateway (:8001)             配置/管理 API
-│ /api/skills       → Gateway (:8001)
-│ /api/threads/*/uploads → Gateway (:8001)
-│ /*                → Frontend (:3000)            Next.js UI
-└─────────────┘
-```
+![dac8cca4cbf99a8cbcdd48.png](https://chenxqblog-1258795182.cos.ap-guangzhou.myqcloud.com/obsidian/dac8cca4cbf99a8cbcdd48.png)
 
 一个容易产生误解的地方是：**Chat 的流式传输不经过 Gateway**。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些"管理侧"的 API。Chat 消息直接走 `nginx → LangGraph Server`，Gateway 完全不参与。
 

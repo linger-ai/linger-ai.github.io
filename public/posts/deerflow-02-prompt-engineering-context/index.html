@@ -7,7 +7,21 @@
 <meta name="robots" content="noindex, nofollow">
 <title>DeerFlow 源码解析（二）：系统提示词工程与上下文架构 | Linger-AI Space</title>
 <meta name="keywords" content="AI, 技术, DeerFlow">
-<meta name="description" content="上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。
+<meta name="description" content="
+DeerFlow 源码解析系列目录
+
+导读：AI Agent 框架的选择与 DeerFlow 的定位
+第一篇：一个 Chat 请求的完整生命周期
+第二篇（本文）：系统提示词工程与上下文架构
+第三篇：主从 Agent 协作与安全边界
+第四篇：Skills、MCP 与工具生态
+第五篇：沙箱隔离与代码执行
+第六篇：长期记忆、IM 通道与多端接入
+第七篇：Harness Engineering 工程实践
+
+
+
+上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。
 系统提示词不是一个字符串，是一个条件组装过程
 DeerFlow 的主 Agent 系统提示词不是写死在代码里的一段话。apply_prompt_template() 根据运行时配置，从 12 个可选 section 中挑选需要的部分，拼成最终的 prompt：
 # backend/packages/harness/deerflow/agents/lead_agent/prompt.py:468
@@ -166,11 +180,25 @@ def apply_prompt_template(
     </h1>
     <div class="post-meta">
 
-<span title='2026-03-28 11:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>742 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+<span title='2026-03-28 11:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>763 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
 
 </div>
   </header> 
-  <div class="post-content"><p>上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。</p>
+  <div class="post-content"><blockquote>
+<p><strong>DeerFlow 源码解析系列目录</strong></p>
+<ul>
+<li><a href="/posts/deerflow-00-introduction">导读：AI Agent 框架的选择与 DeerFlow 的定位</a></li>
+<li><a href="/posts/deerflow-01-chat-request-lifecycle">第一篇：一个 Chat 请求的完整生命周期</a></li>
+<li><strong>第二篇（本文）</strong>：系统提示词工程与上下文架构</li>
+<li><a href="/posts/deerflow-03-multi-agent-collaboration">第三篇：主从 Agent 协作与安全边界</a></li>
+<li><a href="/posts/deerflow-04-skills-mcp-tools">第四篇：Skills、MCP 与工具生态</a></li>
+<li><a href="/posts/deerflow-05-sandbox-isolation">第五篇：沙箱隔离与代码执行</a></li>
+<li><a href="/posts/deerflow-06-memory-im-channels">第六篇：长期记忆、IM 通道与多端接入</a></li>
+<li><a href="/posts/deerflow-07-harness-engineering">第七篇：Harness Engineering 工程实践</a></li>
+</ul>
+</blockquote>
+<hr>
+<p>上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。</p>
 <h2 id="系统提示词不是一个字符串是一个条件组装过程">系统提示词不是一个字符串，是一个条件组装过程<a hidden class="anchor" aria-hidden="true" href="#系统提示词不是一个字符串是一个条件组装过程">#</a></h2>
 <p>DeerFlow 的主 Agent 系统提示词不是写死在代码里的一段话。<code>apply_prompt_template()</code> 根据运行时配置，从 12 个可选 section 中挑选需要的部分，拼成最终的 prompt：</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/lead_agent/prompt.py:468</span>
@@ -365,7 +393,7 @@ def apply_prompt_template(
 </span></span><span style="display:flex;"><span>        running_tokens <span style="color:#f92672">+=</span> line_tokens
 </span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
 </span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>  <span style="color:#75715e"># 预算用完，停止添加</span>
-</span></span></code></pre></div><p>这里有个工程细节：token 计数不是每次都对整个字符串重新计算，而是<strong>增量累加</strong>每条 fact 的 token 数。对于 100 条 fact 的场景，这避免了 100 次完整 tokenize 操作。</p>
+</span></span></code></pre></div><p>这里有个工程细节：token 计数是增量累加每条 fact 的 token 数，而非每次对整个字符串重新计算。对于 100 条 fact 的场景，这避免了 100 次完整 tokenize 操作。</p>
 <h3 id="防线三deferred-tool-filtering工具-schema-按需加载">防线三：Deferred Tool Filtering——工具 Schema 按需加载<a hidden class="anchor" aria-hidden="true" href="#防线三deferred-tool-filtering工具-schema-按需加载">#</a></h3>
 <p>这是一个容易被忽略的 context 消耗源。每个工具在通过 <code>bind_tools()</code> 绑定到模型时，它的完整 JSON Schema（包括参数描述、类型定义）都会进入上下文。如果通过 MCP 接入了大量外部工具，Schema 的 token 消耗会很可观。</p>
 <p><code>DeferredToolFilterMiddleware</code> 的做法是：在 <code>wrap_model_call</code> 阶段，把&quot;延迟工具&quot;的 Schema 从 <code>bind_tools</code> 列表中移除。Agent 只在提示词中看到这些工具的名称列表（不到一行一个），需要时通过 <code>tool_search</code> 工具查询完整 Schema。</p>
@@ -440,7 +468,7 @@ def apply_prompt_template(
 </table>
 <p>子 Agent 被设计成一个&quot;执行者&quot;：接到任务就干，干完就汇报。它不需要理解用户、不需要澄清意图、不需要长期记忆。这种刻意的&quot;上下文瘦身&quot;有两个目的：一是减少 token 消耗（子 Agent 可能被并行启动 3 个），二是减少干扰——给子 Agent 太多无关上下文只会让它表现更差（Dex Horthy 的研究表明，上下文占用超过 40% 后性能开始下降）。</p>
 <h2 id="小结">小结<a hidden class="anchor" aria-hidden="true" href="#小结">#</a></h2>
-<p>DeerFlow 的提示词工程不是&quot;写一段好的 prompt&quot;这么简单。它是一个多层次的上下文管理系统：</p>
+<p>DeerFlow 的提示词工程本质上是一个多层次的上下文管理系统：</p>
 <ul>
 <li><strong>模板层</strong>：12 个条件 section，按运行模式动态组装</li>
 <li><strong>内容层</strong>：Soul 定义人格，Skills 给目录不给全文，Memory 有 token 预算</li>

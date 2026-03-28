@@ -7,7 +7,21 @@
 <meta name="robots" content="noindex, nofollow">
 <title>DeerFlow 源码解析（四）：Skills、MCP 与工具生态 | Linger-AI Space</title>
 <meta name="keywords" content="AI, 技术, DeerFlow">
-<meta name="description" content="上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&quot;手脚&quot;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。
+<meta name="description" content="
+DeerFlow 源码解析系列目录
+
+导读：AI Agent 框架的选择与 DeerFlow 的定位
+第一篇：一个 Chat 请求的完整生命周期
+第二篇：系统提示词工程与上下文架构
+第三篇：主从 Agent 协作与安全边界
+第四篇（本文）：Skills、MCP 与工具生态
+第五篇：沙箱隔离与代码执行
+第六篇：长期记忆、IM 通道与多端接入
+第七篇：Harness Engineering 工程实践
+
+
+
+上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&quot;手脚&quot;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。
 工具的四个来源
 当主 Agent 被创建时，get_available_tools() 会汇集来自四个不同来源的工具：
 # backend/packages/harness/deerflow/tools/tools.py:113-114
@@ -45,21 +59,7 @@ return loaded_tools &#43; builtin_tools &#43; mcp_tools &#43; acp_tools
       
   
 
-其中 builtin_tools 的组成是动态的，根据运行时配置决定哪些工具被包含：
-# backend/packages/harness/deerflow/tools/tools.py:47-62
-builtin_tools = BUILTIN_TOOLS.copy()  # [present_file, ask_clarification]
-
-if subagent_enabled:
-    builtin_tools.extend(SUBAGENT_TOOLS)  # &#43; [task]
-
-model_config = config.get_model_config(model_name)
-if model_config is not None and model_config.supports_vision:
-    builtin_tools.append(view_image_tool)  # &#43; [view_image]
-
-if config.tool_search.enabled:
-    # ... 注册延迟工具
-    builtin_tools.append(tool_search_tool)  # &#43; [tool_search]
-这种按需组装的设计避免了给 Agent 提供它不需要的工具。不支持视觉的模型看不到 view_image，未开启子 Agent 模式时没有 task 工具。">
+其中 builtin_tools 的组成是动态的，根据运行时配置决定哪些工具被包含：">
 <meta name="author" content="Linger">
 <link rel="canonical" href="http://localhost:1313/posts/deerflow-04-skills-mcp-tools/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
@@ -191,11 +191,25 @@ if config.tool_search.enabled:
     </h1>
     <div class="post-meta">
 
-<span title='2026-03-28 13:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1583 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+<span title='2026-03-28 13:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1605 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
 
 </div>
   </header> 
-  <div class="post-content"><p>上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&quot;手脚&quot;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。</p>
+  <div class="post-content"><blockquote>
+<p><strong>DeerFlow 源码解析系列目录</strong></p>
+<ul>
+<li><a href="/posts/deerflow-00-introduction">导读：AI Agent 框架的选择与 DeerFlow 的定位</a></li>
+<li><a href="/posts/deerflow-01-chat-request-lifecycle">第一篇：一个 Chat 请求的完整生命周期</a></li>
+<li><a href="/posts/deerflow-02-prompt-engineering-context">第二篇：系统提示词工程与上下文架构</a></li>
+<li><a href="/posts/deerflow-03-multi-agent-collaboration">第三篇：主从 Agent 协作与安全边界</a></li>
+<li><strong>第四篇（本文）</strong>：Skills、MCP 与工具生态</li>
+<li><a href="/posts/deerflow-05-sandbox-isolation">第五篇：沙箱隔离与代码执行</a></li>
+<li><a href="/posts/deerflow-06-memory-im-channels">第六篇：长期记忆、IM 通道与多端接入</a></li>
+<li><a href="/posts/deerflow-07-harness-engineering">第七篇：Harness Engineering 工程实践</a></li>
+</ul>
+</blockquote>
+<hr>
+<p>上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&quot;手脚&quot;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。</p>
 <h2 id="工具的四个来源">工具的四个来源<a hidden class="anchor" aria-hidden="true" href="#工具的四个来源">#</a></h2>
 <p>当主 Agent 被创建时，<code>get_available_tools()</code> 会汇集来自四个不同来源的工具：</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/tools/tools.py:113-114</span>
@@ -693,7 +707,7 @@ if config.tool_search.enabled:
     style SP_Deferred fill:#7B68EE,color:#fff
     style RT_Schema fill:#2ECC71,color:#fff
 </div>
-<p>核心设计原则是<strong>渐进式 token 消耗</strong>：先让 Agent 知道有什么可用（低成本），需要时再加载详情（按需付费），执行时才加载具体资源（最终成本）。这在工具数量大时（几十个 MCP 工具 + 十几个 Skills）能显著降低每次请求的基础 token 开销。</p>
+<p>核心设计原则是渐进式 token 消耗：先让 Agent 知道有什么可用（低成本），需要时再加载详情（按需付费），执行时才加载具体资源（最终成本）。这在工具数量大时（几十个 MCP 工具 + 十几个 Skills）能显著降低每次请求的基础 token 开销。</p>
 <hr>
 <p>下一篇将深入沙箱系统：DeerFlow 如何在本地和 Docker 两种模式下安全地执行用户代码，以及虚拟路径系统如何在代码和容器之间建立安全的文件访问映射。</p>
 

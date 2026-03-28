@@ -139,6 +139,24 @@
 
 <article class="post-entry tag-entry"> 
   <header class="entry-header">
+    <h2 class="entry-hint-parent">Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 引言 在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。
+本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。
+系统架构概览 Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：
+graph TB subgraph &#34;数据采集层&#34; RSS[RSS Collector] WEB[Web Scraper] JINA[Jina Reader] end subgraph &#34;LangGraph Workflow&#34; COLLECT[Collect Node] SUMMARIZE[Summarize Node] ILLUSTRATE[Illustrate Node] PUBLISH[Publish Node] end subgraph &#34;AI 服务层&#34; LLM[Doubao LLM] IMG[Seedream 图像生成] end subgraph &#34;输出层&#34; GH[GitHub Pages] PICBED[图床服务] end RSS --&gt; COLLECT WEB --&gt; COLLECT JINA --&gt; WEB COLLECT --&gt; SUMMARIZE SUMMARIZE --&gt; LLM LLM --&gt; SUMMARIZE SUMMARIZE --&gt; ILLUSTRATE ILLUSTRATE --&gt; IMG IMG --&gt; PICBED ILLUSTRATE --&gt; PUBLISH PUBLISH --&gt; GH 核心模块详解 1. LangGraph 工作流设计 LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-02-26 20:03:33 +0800 CST'>February 26, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>826 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析" href="http://localhost:1313/posts/linger-technical-deep-dive/"></a>
+</article>
+
+<article class="post-entry tag-entry"> 
+  <header class="entry-header">
     <h2 class="entry-hint-parent">ADK 多智能体协作的状态管理与冲突解决策略
     </h2>
   </header>

@@ -14,16 +14,30 @@
       <pubDate>Sat, 28 Mar 2026 16:00:00 +0800</pubDate>
       <guid>http://localhost:1313/posts/deerflow-07-harness-engineering/</guid>
       <description>&lt;blockquote&gt;
-&lt;p&gt;本文是 DeerFlow 源码解析系列的收尾篇。前六篇深入了各个子系统的实现细节，本篇退后一步，审视支撑这些子系统的&lt;strong&gt;工程基础设施&lt;/strong&gt;——AI Agent 指导文件、架构边界强制、CI/CD 管线、代码规范，以及对整个项目工程实践的综合评估。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-00-introduction&#34;&gt;导读：AI Agent 框架的选择与 DeerFlow 的定位&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-01-chat-request-lifecycle&#34;&gt;第一篇：一个 Chat 请求的完整生命周期&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-02-prompt-engineering-context&#34;&gt;第二篇：系统提示词工程与上下文架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-03-multi-agent-collaboration&#34;&gt;第三篇：主从 Agent 协作与安全边界&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-04-skills-mcp-tools&#34;&gt;第四篇：Skills、MCP 与工具生态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-05-sandbox-isolation&#34;&gt;第五篇：沙箱隔离与代码执行&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-06-memory-im-channels&#34;&gt;第六篇：长期记忆、IM 通道与多端接入&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第七篇（本文）&lt;/strong&gt;：Harness Engineering 工程实践&lt;/li&gt;
+&lt;/ul&gt;
 &lt;/blockquote&gt;
-&lt;p&gt;一个 AI Agent 系统的代码质量不只取决于 Agent 本身写得多好，还取决于一个更底层的问题：&lt;strong&gt;这个项目是否有足够的工程纪律来让多人（包括 AI 助手）安全地协作&lt;/strong&gt;。DeerFlow 在这方面做了大量工作，有些做得非常出色，有些还在进化中。&lt;/p&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;前六篇深入了各个子系统的实现细节，本篇退后一步，审视支撑这些子系统的工程基础设施——AI Agent 指导文件、架构边界强制、CI/CD 管线、代码规范，以及对整个项目工程实践的综合评估。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;一个 AI Agent 系统的代码质量不只取决于 Agent 本身写得多好，还取决于一个更底层的问题：&lt;strong&gt;这个项目是否有足够的工程纪律来让多人（包括 AI 助手）安全地协作&lt;/strong&gt;。DeerFlow 在这方面做了大量工作，有些做得扎实，有些还在进化中。&lt;/p&gt;
 &lt;h2 id=&#34;一claudemd给-ai-agent-写的架构文档&#34;&gt;一、CLAUDE.md——给 AI Agent 写的架构文档&lt;/h2&gt;
 &lt;h3 id=&#34;11-文档定位&#34;&gt;1.1 文档定位&lt;/h3&gt;
 &lt;p&gt;&lt;code&gt;backend/CLAUDE.md&lt;/code&gt;（523 行）不是一份普通的 README。它的开头就表明了身份：&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.&lt;/p&gt;
 &lt;/blockquote&gt;
-&lt;p&gt;这是一份专门为 AI 编程助手撰写的架构指导文档。它的设计目标不是教人类开发者&amp;quot;怎么用这个项目&amp;quot;，而是让 AI 助手&amp;quot;在不看代码的情况下理解架构决策，并做出正确的修改&amp;quot;。&lt;/p&gt;
+&lt;p&gt;这是一份专门为 AI 编程助手撰写的架构指导文档。设计目标是让 AI 助手在不看代码的情况下理解架构决策，并做出正确的修改——而非教人类开发者&amp;quot;怎么用这个项目&amp;quot;。&lt;/p&gt;
 &lt;h3 id=&#34;12-文档结构&#34;&gt;1.2 文档结构&lt;/h3&gt;
 &lt;p&gt;CLAUDE.md 的组织遵循&amp;quot;从全局到细节&amp;quot;的信息架构：&lt;/p&gt;
 &lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;1. Project Overview        — 一段话定位项目
@@ -61,7 +75,21 @@
       <pubDate>Sat, 28 Mar 2026 15:00:00 +0800</pubDate>
       <guid>http://localhost:1313/posts/deerflow-06-memory-im-channels/</guid>
       <description>&lt;blockquote&gt;
-&lt;p&gt;本文是 DeerFlow 源码解析系列的第六篇。前五篇分别覆盖了请求生命周期、提示词工程、主从 Agent 协作、Skills/MCP 工具生态和沙箱隔离。本篇拆解两个相对独立但直接决定&amp;quot;能不能日常用&amp;quot;的子系统——长期记忆（Memory）和 IM 通道（Channels）。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-00-introduction&#34;&gt;导读：AI Agent 框架的选择与 DeerFlow 的定位&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-01-chat-request-lifecycle&#34;&gt;第一篇：一个 Chat 请求的完整生命周期&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-02-prompt-engineering-context&#34;&gt;第二篇：系统提示词工程与上下文架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-03-multi-agent-collaboration&#34;&gt;第三篇：主从 Agent 协作与安全边界&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-04-skills-mcp-tools&#34;&gt;第四篇：Skills、MCP 与工具生态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-05-sandbox-isolation&#34;&gt;第五篇：沙箱隔离与代码执行&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第六篇（本文）&lt;/strong&gt;：长期记忆、IM 通道与多端接入&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-07-harness-engineering&#34;&gt;第七篇：Harness Engineering 工程实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;前五篇分别覆盖了请求生命周期、提示词工程、主从 Agent 协作、Skills/MCP 工具生态和沙箱隔离。本篇拆解两个相对独立但直接决定&amp;quot;能不能日常用&amp;quot;的子系统——长期记忆（Memory）和 IM 通道（Channels）。&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;p&gt;一个 AI Agent 要从&amp;quot;演示品&amp;quot;走向&amp;quot;日常使用的工具&amp;quot;，需要解决两个根本问题：&lt;strong&gt;记住用户&lt;/strong&gt;和&lt;strong&gt;触达用户&lt;/strong&gt;。DeerFlow 的 Memory 子系统负责前者，Channels 子系统负责后者。它们在代码层面分别位于 Harness 层和 App 层，依赖方向严格单向，但在功能上形成了一个完整的闭环——Agent 通过 IM 通道接收消息、处理请求，处理完成后将对话摘要写入长期记忆，下次任何通道上的对话都能受益于这些记忆。&lt;/p&gt;
 &lt;h2 id=&#34;一长期记忆系统架构&#34;&gt;一、长期记忆系统架构&lt;/h2&gt;
@@ -83,69 +111,28 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        },
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;facts&amp;#34;&lt;/span&gt;: [],
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这个设计将记忆分为三个维度：&lt;/p&gt;
-&lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;维度&lt;/th&gt;
-          &lt;th&gt;Section&lt;/th&gt;
-          &lt;th&gt;用途&lt;/th&gt;
-          &lt;th&gt;更新频率&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;User Context&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;workContext&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;职业角色、项目、技术栈（2-3 句）&lt;/td&gt;
-          &lt;td&gt;低&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;personalContext&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;语言、沟通偏好、兴趣（1-2 句）&lt;/td&gt;
-          &lt;td&gt;低&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;topOfMind&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;当前多个并行关注点（3-5 句）&lt;/td&gt;
-          &lt;td&gt;高&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;History&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;recentMonths&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;近 1-3 月活动详情（4-6 句）&lt;/td&gt;
-          &lt;td&gt;中&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;earlierContext&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;3-12 月前的模式（3-5 句）&lt;/td&gt;
-          &lt;td&gt;低&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;longTermBackground&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;不变的基础背景（2-4 句）&lt;/td&gt;
-          &lt;td&gt;极低&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;Facts&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;facts[]&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;离散事实条目，带置信度、分类、来源&lt;/td&gt;
-          &lt;td&gt;每次对话&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
-&lt;/table&gt;
-&lt;p&gt;Facts 的数据结构比 summary 更有意思：&lt;/p&gt;</description>
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这个设计将记忆分为三个维度：&lt;/p&gt;</description>
     </item>
     <item>
       <title>DeerFlow 源码解析（五）：沙箱隔离与代码执行</title>
       <link>http://localhost:1313/posts/deerflow-05-sandbox-isolation/</link>
       <pubDate>Sat, 28 Mar 2026 14:00:00 +0800</pubDate>
       <guid>http://localhost:1313/posts/deerflow-05-sandbox-isolation/</guid>
-      <description>&lt;p&gt;上一篇分析了 Skills 和 MCP 的加载机制。这篇聚焦沙箱系统——Agent 执行 bash 命令、读写文件时，底层的安全隔离是如何实现的，以及虚拟路径系统如何在 Agent 感知和主机文件系统之间建立一层安全的翻译层。&lt;/p&gt;
+      <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-00-introduction&#34;&gt;导读：AI Agent 框架的选择与 DeerFlow 的定位&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-01-chat-request-lifecycle&#34;&gt;第一篇：一个 Chat 请求的完整生命周期&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-02-prompt-engineering-context&#34;&gt;第二篇：系统提示词工程与上下文架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-03-multi-agent-collaboration&#34;&gt;第三篇：主从 Agent 协作与安全边界&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-04-skills-mcp-tools&#34;&gt;第四篇：Skills、MCP 与工具生态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第五篇（本文）&lt;/strong&gt;：沙箱隔离与代码执行&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-06-memory-im-channels&#34;&gt;第六篇：长期记忆、IM 通道与多端接入&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-07-harness-engineering&#34;&gt;第七篇：Harness Engineering 工程实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;p&gt;上一篇分析了 Skills 和 MCP 的加载机制。这篇聚焦沙箱系统——Agent 执行 bash 命令、读写文件时，底层的安全隔离是如何实现的，以及虚拟路径系统如何在 Agent 感知和主机文件系统之间建立一层安全的翻译层。&lt;/p&gt;
 &lt;h2 id=&#34;双-provider-架构&#34;&gt;双 Provider 架构&lt;/h2&gt;
 &lt;p&gt;DeerFlow 的沙箱系统围绕两个核心抽象建立：&lt;code&gt;Sandbox&lt;/code&gt;（执行环境）和 &lt;code&gt;SandboxProvider&lt;/code&gt;（环境管理器）。&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# backend/packages/harness/deerflow/sandbox/sandbox.py:4-6&lt;/span&gt;
@@ -178,23 +165,28 @@
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;Provider 的选择由 &lt;code&gt;config.yaml&lt;/code&gt; 中的 &lt;code&gt;sandbox.use&lt;/code&gt; 字段决定，通过反射加载：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# backend/packages/harness/deerflow/sandbox/sandbox_provider.py:52-56&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;get_sandbox_provider&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt;kwargs) &lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt; SandboxProvider:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;global&lt;/span&gt; _default_sandbox_provider
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; _default_sandbox_provider &lt;span style=&#34;color:#f92672&#34;&gt;is&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;None&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        config &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; get_app_config()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        cls &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; resolve_class(config&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sandbox&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;use, SandboxProvider)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        _default_sandbox_provider &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cls(&lt;span style=&#34;color:#f92672&#34;&gt;**&lt;/span&gt;kwargs)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; _default_sandbox_provider
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;全局单例模式，一个进程只有一个 Provider 实例。&lt;/p&gt;</description>
+&lt;p&gt;Provider 的选择由 &lt;code&gt;config.yaml&lt;/code&gt; 中的 &lt;code&gt;sandbox.use&lt;/code&gt; 字段决定，通过反射加载：&lt;/p&gt;</description>
     </item>
     <item>
       <title>DeerFlow 源码解析（四）：Skills、MCP 与工具生态</title>
       <link>http://localhost:1313/posts/deerflow-04-skills-mcp-tools/</link>
       <pubDate>Sat, 28 Mar 2026 13:00:00 +0800</pubDate>
       <guid>http://localhost:1313/posts/deerflow-04-skills-mcp-tools/</guid>
-      <description>&lt;p&gt;上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&amp;quot;手脚&amp;quot;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。&lt;/p&gt;
+      <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-00-introduction&#34;&gt;导读：AI Agent 框架的选择与 DeerFlow 的定位&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-01-chat-request-lifecycle&#34;&gt;第一篇：一个 Chat 请求的完整生命周期&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-02-prompt-engineering-context&#34;&gt;第二篇：系统提示词工程与上下文架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-03-multi-agent-collaboration&#34;&gt;第三篇：主从 Agent 协作与安全边界&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第四篇（本文）&lt;/strong&gt;：Skills、MCP 与工具生态&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-05-sandbox-isolation&#34;&gt;第五篇：沙箱隔离与代码执行&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-06-memory-im-channels&#34;&gt;第六篇：长期记忆、IM 通道与多端接入&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-07-harness-engineering&#34;&gt;第七篇：Harness Engineering 工程实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;p&gt;上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&amp;quot;手脚&amp;quot;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。&lt;/p&gt;
 &lt;h2 id=&#34;工具的四个来源&#34;&gt;工具的四个来源&lt;/h2&gt;
 &lt;p&gt;当主 Agent 被创建时，&lt;code&gt;get_available_tools()&lt;/code&gt; 会汇集来自四个不同来源的工具：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# backend/packages/harness/deerflow/tools/tools.py:113-114&lt;/span&gt;
@@ -232,28 +224,28 @@
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;其中 &lt;code&gt;builtin_tools&lt;/code&gt; 的组成是动态的，根据运行时配置决定哪些工具被包含：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# backend/packages/harness/deerflow/tools/tools.py:47-62&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;builtin_tools &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; BUILTIN_TOOLS&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;copy()  &lt;span style=&#34;color:#75715e&#34;&gt;# [present_file, ask_clarification]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; subagent_enabled:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    builtin_tools&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;extend(SUBAGENT_TOOLS)  &lt;span style=&#34;color:#75715e&#34;&gt;# + [task]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;model_config &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; config&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;get_model_config(model_name)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; model_config &lt;span style=&#34;color:#f92672&#34;&gt;is&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;not&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;None&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; model_config&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;supports_vision:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    builtin_tools&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(view_image_tool)  &lt;span style=&#34;color:#75715e&#34;&gt;# + [view_image]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; config&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_search&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;enabled:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# ... 注册延迟工具&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    builtin_tools&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(tool_search_tool)  &lt;span style=&#34;color:#75715e&#34;&gt;# + [tool_search]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这种按需组装的设计避免了给 Agent 提供它不需要的工具。不支持视觉的模型看不到 &lt;code&gt;view_image&lt;/code&gt;，未开启子 Agent 模式时没有 &lt;code&gt;task&lt;/code&gt; 工具。&lt;/p&gt;</description>
+&lt;p&gt;其中 &lt;code&gt;builtin_tools&lt;/code&gt; 的组成是动态的，根据运行时配置决定哪些工具被包含：&lt;/p&gt;</description>
     </item>
     <item>
       <title>DeerFlow 源码解析（三）：主从 Agent 协作与安全边界</title>
       <link>http://localhost:1313/posts/deerflow-03-multi-agent-collaboration/</link>
       <pubDate>Sat, 28 Mar 2026 12:00:00 +0800</pubDate>
       <guid>http://localhost:1313/posts/deerflow-03-multi-agent-collaboration/</guid>
-      <description>&lt;p&gt;上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。&lt;/p&gt;
+      <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-00-introduction&#34;&gt;导读：AI Agent 框架的选择与 DeerFlow 的定位&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-01-chat-request-lifecycle&#34;&gt;第一篇：一个 Chat 请求的完整生命周期&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-02-prompt-engineering-context&#34;&gt;第二篇：系统提示词工程与上下文架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第三篇（本文）&lt;/strong&gt;：主从 Agent 协作与安全边界&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-04-skills-mcp-tools&#34;&gt;第四篇：Skills、MCP 与工具生态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-05-sandbox-isolation&#34;&gt;第五篇：沙箱隔离与代码执行&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-06-memory-im-channels&#34;&gt;第六篇：长期记忆、IM 通道与多端接入&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-07-harness-engineering&#34;&gt;第七篇：Harness Engineering 工程实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;p&gt;上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。&lt;/p&gt;
 &lt;h2 id=&#34;两层扁平架构不是递归树&#34;&gt;两层扁平架构，不是递归树&lt;/h2&gt;
 &lt;p&gt;DeerFlow 的 Agent 拓扑是严格的两层结构：一个主 Agent（Lead Agent）协调零到多个子 Agent（Subagent）。子 Agent 不能再创建子 Agent。&lt;/p&gt;
 &lt;div class=&#34;mermaid&#34;&gt;
@@ -280,7 +272,21 @@
       <link>http://localhost:1313/posts/deerflow-02-prompt-engineering-context/</link>
       <pubDate>Sat, 28 Mar 2026 11:00:00 +0800</pubDate>
       <guid>http://localhost:1313/posts/deerflow-02-prompt-engineering-context/</guid>
-      <description>&lt;p&gt;上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。&lt;/p&gt;
+      <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-00-introduction&#34;&gt;导读：AI Agent 框架的选择与 DeerFlow 的定位&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-01-chat-request-lifecycle&#34;&gt;第一篇：一个 Chat 请求的完整生命周期&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第二篇（本文）&lt;/strong&gt;：系统提示词工程与上下文架构&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-03-multi-agent-collaboration&#34;&gt;第三篇：主从 Agent 协作与安全边界&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-04-skills-mcp-tools&#34;&gt;第四篇：Skills、MCP 与工具生态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-05-sandbox-isolation&#34;&gt;第五篇：沙箱隔离与代码执行&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-06-memory-im-channels&#34;&gt;第六篇：长期记忆、IM 通道与多端接入&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-07-harness-engineering&#34;&gt;第七篇：Harness Engineering 工程实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;p&gt;上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。&lt;/p&gt;
 &lt;h2 id=&#34;系统提示词不是一个字符串是一个条件组装过程&#34;&gt;系统提示词不是一个字符串，是一个条件组装过程&lt;/h2&gt;
 &lt;p&gt;DeerFlow 的主 Agent 系统提示词不是写死在代码里的一段话。&lt;code&gt;apply_prompt_template()&lt;/code&gt; 根据运行时配置，从 12 个可选 section 中挑选需要的部分，拼成最终的 prompt：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# backend/packages/harness/deerflow/agents/lead_agent/prompt.py:468&lt;/span&gt;
@@ -314,7 +320,21 @@
       <link>http://localhost:1313/posts/deerflow-01-chat-request-lifecycle/</link>
       <pubDate>Sat, 28 Mar 2026 10:00:00 +0800</pubDate>
       <guid>http://localhost:1313/posts/deerflow-01-chat-request-lifecycle/</guid>
-      <description>&lt;p&gt;DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。&lt;/p&gt;
+      <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-00-introduction&#34;&gt;导读：AI Agent 框架的选择与 DeerFlow 的定位&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第一篇（本文）&lt;/strong&gt;：一个 Chat 请求的完整生命周期&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-02-prompt-engineering-context&#34;&gt;第二篇：系统提示词工程与上下文架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-03-multi-agent-collaboration&#34;&gt;第三篇：主从 Agent 协作与安全边界&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-04-skills-mcp-tools&#34;&gt;第四篇：Skills、MCP 与工具生态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-05-sandbox-isolation&#34;&gt;第五篇：沙箱隔离与代码执行&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-06-memory-im-channels&#34;&gt;第六篇：长期记忆、IM 通道与多端接入&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-07-harness-engineering&#34;&gt;第七篇：Harness Engineering 工程实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;p&gt;DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph + FastAPI + Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。&lt;/p&gt;
 &lt;p&gt;第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？&lt;/p&gt;
 &lt;h2 id=&#34;四个服务各司其职&#34;&gt;四个服务，各司其职&lt;/h2&gt;
 &lt;p&gt;DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：&lt;/p&gt;
@@ -332,6 +352,44 @@
 │ /*                → Frontend (:3000)            Next.js UI
 └─────────────┘
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;一个容易产生误解的地方是：&lt;strong&gt;Chat 的流式传输不经过 Gateway&lt;/strong&gt;。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&amp;quot;管理侧&amp;quot;的 API。Chat 消息直接走 &lt;code&gt;nginx → LangGraph Server&lt;/code&gt;，Gateway 完全不参与。&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>DeerFlow 源码解析（〇）：导读——AI Agent 框架的选择与 DeerFlow 的定位</title>
+      <link>http://localhost:1313/posts/deerflow-00-introduction/</link>
+      <pubDate>Sat, 28 Mar 2026 09:00:00 +0800</pubDate>
+      <guid>http://localhost:1313/posts/deerflow-00-introduction/</guid>
+      <description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;DeerFlow 源码解析系列目录&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;导读（本文）&lt;/strong&gt;：AI Agent 框架的选择与 DeerFlow 的定位&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-01-chat-request-lifecycle&#34;&gt;第一篇：一个 Chat 请求的完整生命周期&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-02-prompt-engineering-context&#34;&gt;第二篇：系统提示词工程与上下文架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-03-multi-agent-collaboration&#34;&gt;第三篇：主从 Agent 协作与安全边界&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-04-skills-mcp-tools&#34;&gt;第四篇：Skills、MCP 与工具生态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-05-sandbox-isolation&#34;&gt;第五篇：沙箱隔离与代码执行&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-06-memory-im-channels&#34;&gt;第六篇：长期记忆、IM 通道与多端接入&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://localhost:1313/posts/deerflow-07-harness-engineering&#34;&gt;第七篇：Harness Engineering 工程实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;p&gt;2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。&lt;/p&gt;
+&lt;p&gt;DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。&lt;/p&gt;
+&lt;h2 id=&#34;一当前-ai-agent-框架的分层&#34;&gt;一、当前 AI Agent 框架的分层&lt;/h2&gt;
+&lt;p&gt;把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌─────────────────────────────────────────────────────┐
+│  应用层 (Application)                                │
+│  Claude Code · OpenCode/Crush · DeerFlow            │
+│  → 直接面向终端用户，开箱即用                          │
+├─────────────────────────────────────────────────────┤
+│  编排层 (Orchestration)                              │
+│  CrewAI · AutoGen · OpenAI Agents SDK               │
+│  → 提供多 Agent 协作模式，用户组装自己的应用            │
+├─────────────────────────────────────────────────────┤
+│  基础设施层 (Infrastructure)                          │
+│  LangGraph                                          │
+│  → 状态机 + 持久化执行，不关心 Agent 怎么用            │
+└─────────────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;基础设施层&lt;/strong&gt;只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于&amp;quot;Agent 应该长什么样&amp;quot;的意见。你拿到的是一堆积木，怎么搭是你的事。&lt;/p&gt;</description>
     </item>
     <item>
       <title>Harness Engineering 实践指南：让 AI Agent 可靠地写代码</title>

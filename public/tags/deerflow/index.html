@@ -143,18 +143,19 @@
     </h2>
   </header>
   <div class="entry-content">
-    <p> 本文是 DeerFlow 源码解析系列的收尾篇。前六篇深入了各个子系统的实现细节，本篇退后一步，审视支撑这些子系统的工程基础设施——AI Agent 指导文件、架构边界强制、CI/CD 管线、代码规范，以及对整个项目工程实践的综合评估。
-一个 AI Agent 系统的代码质量不只取决于 Agent 本身写得多好，还取决于一个更底层的问题：这个项目是否有足够的工程纪律来让多人（包括 AI 助手）安全地协作。DeerFlow 在这方面做了大量工作，有些做得非常出色，有些还在进化中。
+    <p> DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇（本文）：Harness Engineering 工程实践 前六篇深入了各个子系统的实现细节，本篇退后一步，审视支撑这些子系统的工程基础设施——AI Agent 指导文件、架构边界强制、CI/CD 管线、代码规范，以及对整个项目工程实践的综合评估。
+一个 AI Agent 系统的代码质量不只取决于 Agent 本身写得多好，还取决于一个更底层的问题：这个项目是否有足够的工程纪律来让多人（包括 AI 助手）安全地协作。DeerFlow 在这方面做了大量工作，有些做得扎实，有些还在进化中。
 一、CLAUDE.md——给 AI Agent 写的架构文档 1.1 文档定位 backend/CLAUDE.md（523 行）不是一份普通的 README。它的开头就表明了身份：
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-这是一份专门为 AI 编程助手撰写的架构指导文档。它的设计目标不是教人类开发者&#34;怎么用这个项目&#34;，而是让 AI 助手&#34;在不看代码的情况下理解架构决策，并做出正确的修改&#34;。
+这是一份专门为 AI 编程助手撰写的架构指导文档。设计目标是让 AI 助手在不看代码的情况下理解架构决策，并做出正确的修改——而非教人类开发者&#34;怎么用这个项目&#34;。
 1.2 文档结构 CLAUDE.md 的组织遵循&#34;从全局到细节&#34;的信息架构：
 1. Project Overview — 一段话定位项目 2. Architecture — 四服务架构 &#43; 端口 3. Project Structure — 完整目录树 4. Important Guidelines — 文档更新政策（全大写 CRITICAL） 5. Commands — 可执行的命令列表 6. Architecture Details — 每个子系统的详细说明 - Harness/App Split - Agent System - Middleware Chain - Configuration System - Gateway API - Sandbox System - Subagent System - Tool System - MCP System - Skills System - Model Factory - IM Channels System - Memory System - Reflection System - Config Schema - Embedded Client 7. Development Workflow — TDD 要求 &#43; 运行方式 8. Key Features — 用户可见的功能特性 9. Code Style — 代码风格约定 10. Documentation Links — 详细文档指引 1.3 为什么这样的文档很重要 在传统软件工程中，架构文档是给人读的，可以假设读者会&#34;浏览代码来补全理解&#34;。但 AI Agent 的上下文窗口有限，不能随意浏览整个代码库。CLAUDE.md 需要在一个文件内提供足够的信息，让 AI 做出正确的决策。
 ...</p>
   </div>
   <footer class="entry-footer">
 
-<span title='2026-03-28 16:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1365 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+<span title='2026-03-28 16:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1387 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
   <a class="entry-link" aria-label="post link to DeerFlow 源码解析（七）：Harness Engineering 工程实践" href="http://localhost:1313/posts/deerflow-07-harness-engineering/"></a>
 </article>
 
@@ -164,16 +165,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     </h2>
   </header>
   <div class="entry-content">
-    <p> 本文是 DeerFlow 源码解析系列的第六篇。前五篇分别覆盖了请求生命周期、提示词工程、主从 Agent 协作、Skills/MCP 工具生态和沙箱隔离。本篇拆解两个相对独立但直接决定&#34;能不能日常用&#34;的子系统——长期记忆（Memory）和 IM 通道（Channels）。
+    <p> DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇（本文）：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 前五篇分别覆盖了请求生命周期、提示词工程、主从 Agent 协作、Skills/MCP 工具生态和沙箱隔离。本篇拆解两个相对独立但直接决定&#34;能不能日常用&#34;的子系统——长期记忆（Memory）和 IM 通道（Channels）。
 一个 AI Agent 要从&#34;演示品&#34;走向&#34;日常使用的工具&#34;，需要解决两个根本问题：记住用户和触达用户。DeerFlow 的 Memory 子系统负责前者，Channels 子系统负责后者。它们在代码层面分别位于 Harness 层和 App 层，依赖方向严格单向，但在功能上形成了一个完整的闭环——Agent 通过 IM 通道接收消息、处理请求，处理完成后将对话摘要写入长期记忆，下次任何通道上的对话都能受益于这些记忆。
 一、长期记忆系统架构 1.1 存储格式 DeerFlow 的记忆存储在一个 JSON 文件中（默认路径 backend/.deer-flow/memory.json），结构由 _create_empty_memory() 定义（updater.py:43-59）：
 def _create_empty_memory() -&gt; dict[str, Any]: return { &#34;version&#34;: &#34;1.0&#34;, &#34;lastUpdated&#34;: datetime.utcnow().isoformat() &#43; &#34;Z&#34;, &#34;user&#34;: { &#34;workContext&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;personalContext&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;topOfMind&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, }, &#34;history&#34;: { &#34;recentMonths&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;earlierContext&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;longTermBackground&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, }, &#34;facts&#34;: [], } 这个设计将记忆分为三个维度：
-维度 Section 用途 更新频率 User Context workContext 职业角色、项目、技术栈（2-3 句） 低 personalContext 语言、沟通偏好、兴趣（1-2 句） 低 topOfMind 当前多个并行关注点（3-5 句） 高 History recentMonths 近 1-3 月活动详情（4-6 句） 中 earlierContext 3-12 月前的模式（3-5 句） 低 longTermBackground 不变的基础背景（2-4 句） 极低 Facts facts[] 离散事实条目，带置信度、分类、来源 每次对话 Facts 的数据结构比 summary 更有意思：
 ...</p>
   </div>
   <footer class="entry-footer">
 
-<span title='2026-03-28 15:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1672 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+<span title='2026-03-28 15:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1692 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
   <a class="entry-link" aria-label="post link to DeerFlow 源码解析（六）：长期记忆、IM 通道与多端接入" href="http://localhost:1313/posts/deerflow-06-memory-im-channels/"></a>
 </article>
 
@@ -183,16 +184,16 @@ def _create_empty_memory() -&gt; dict[str, Any]: return { &#34;version&#34;: &#3
     </h2>
   </header>
   <div class="entry-content">
-    <p>上一篇分析了 Skills 和 MCP 的加载机制。这篇聚焦沙箱系统——Agent 执行 bash 命令、读写文件时，底层的安全隔离是如何实现的，以及虚拟路径系统如何在 Agent 感知和主机文件系统之间建立一层安全的翻译层。
+    <p> DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇（本文）：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 上一篇分析了 Skills 和 MCP 的加载机制。这篇聚焦沙箱系统——Agent 执行 bash 命令、读写文件时，底层的安全隔离是如何实现的，以及虚拟路径系统如何在 Agent 感知和主机文件系统之间建立一层安全的翻译层。
 双 Provider 架构 DeerFlow 的沙箱系统围绕两个核心抽象建立：Sandbox（执行环境）和 SandboxProvider（环境管理器）。
 # backend/packages/harness/deerflow/sandbox/sandbox.py:4-6 class Sandbox(ABC): &#34;&#34;&#34;Abstract base class for sandbox environments&#34;&#34;&#34; # 四个核心操作：execute_command, read_file, list_dir, write_file # backend/packages/harness/deerflow/sandbox/sandbox_provider.py:8-10 class SandboxProvider(ABC): &#34;&#34;&#34;Abstract base class for sandbox providers&#34;&#34;&#34; # 三个生命周期方法：acquire, get, release 目前有两个实现：
 Provider 隔离级别 适用场景 LocalSandboxProvider 无隔离（直接在宿主执行） 本地开发 AioSandboxProvider Docker 容器隔离 生产环境 Provider 的选择由 config.yaml 中的 sandbox.use 字段决定，通过反射加载：
-# backend/packages/harness/deerflow/sandbox/sandbox_provider.py:52-56 def get_sandbox_provider(**kwargs) -&gt; SandboxProvider: global _default_sandbox_provider if _default_sandbox_provider is None: config = get_app_config() cls = resolve_class(config.sandbox.use, SandboxProvider) _default_sandbox_provider = cls(**kwargs) return _default_sandbox_provider 全局单例模式，一个进程只有一个 Provider 实例。
 ...</p>
   </div>
   <footer class="entry-footer">
 
-<span title='2026-03-28 14:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1144 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+<span title='2026-03-28 14:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1166 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
   <a class="entry-link" aria-label="post link to DeerFlow 源码解析（五）：沙箱隔离与代码执行" href="http://localhost:1313/posts/deerflow-05-sandbox-isolation/"></a>
 </article>
 
@@ -202,15 +203,15 @@ Provider 隔离级别 适用场景 LocalSandboxProvider 无隔离（直接在宿
     </h2>
   </header>
   <div class="entry-content">
-    <p>上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&#34;手脚&#34;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。
+    <p> DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇（本文）：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&#34;手脚&#34;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。
 工具的四个来源 当主 Agent 被创建时，get_available_tools() 会汇集来自四个不同来源的工具：
 # backend/packages/harness/deerflow/tools/tools.py:113-114 logger.info(f&#34;Total tools loaded: {len(loaded_tools)}, built-in tools: {len(builtin_tools)}, &#34; f&#34;MCP tools: {len(mcp_tools)}, ACP tools: {len(acp_tools)}&#34;) return loaded_tools &#43; builtin_tools &#43; mcp_tools &#43; acp_tools 来源 说明 典型工具 loaded_tools config.yaml 中声明的工具（通过反射加载） web_search, bash, read_file, write_file builtin_tools 代码中硬编码的内置工具 present_file, ask_clarification, task, view_image, tool_search mcp_tools MCP 服务器暴露的工具 取决于配置的 MCP 服务器 acp_tools ACP Agent 调用工具 invoke_acp_agent 其中 builtin_tools 的组成是动态的，根据运行时配置决定哪些工具被包含：
-# backend/packages/harness/deerflow/tools/tools.py:47-62 builtin_tools = BUILTIN_TOOLS.copy() # [present_file, ask_clarification] if subagent_enabled: builtin_tools.extend(SUBAGENT_TOOLS) # &#43; [task] model_config = config.get_model_config(model_name) if model_config is not None and model_config.supports_vision: builtin_tools.append(view_image_tool) # &#43; [view_image] if config.tool_search.enabled: # ... 注册延迟工具 builtin_tools.append(tool_search_tool) # &#43; [tool_search] 这种按需组装的设计避免了给 Agent 提供它不需要的工具。不支持视觉的模型看不到 view_image，未开启子 Agent 模式时没有 task 工具。
 ...</p>
   </div>
   <footer class="entry-footer">
 
-<span title='2026-03-28 13:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1583 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+<span title='2026-03-28 13:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1605 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
   <a class="entry-link" aria-label="post link to DeerFlow 源码解析（四）：Skills、MCP 与工具生态" href="http://localhost:1313/posts/deerflow-04-skills-mcp-tools/"></a>
 </article>
 
@@ -220,14 +221,15 @@ Provider 隔离级别 适用场景 LocalSandboxProvider 无隔离（直接在宿
     </h2>
   </header>
   <div class="entry-content">
-    <p>上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。
+    <p> DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇（本文）：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。
 两层扁平架构，不是递归树 DeerFlow 的 Agent 拓扑是严格的两层结构：一个主 Agent（Lead Agent）协调零到多个子 Agent（Subagent）。子 Agent 不能再创建子 Agent。
 graph TD User([用户]) --&gt; Lead[Lead Agent] Lead --&gt;|task tool| SA1[子 Agent 1general-purpose] Lead --&gt;|task tool| SA2[子 Agent 2general-purpose] Lead --&gt;|task tool| SA3[子 Agent 3bash] SA1 -.-&gt;|结果| Lead SA2 -.-&gt;|结果| Lead SA3 -.-&gt;|结果| Lead Lead --&gt; User style Lead fill:#4A90D9,color:#fff style SA1 fill:#7B68EE,color:#fff style SA2 fill:#7B68EE,color:#fff style SA3 fill:#9370DB,color:#fff 为什么不用递归多层？因为递归 Agent 调用有三个实际问题：
 ...</p>
   </div>
   <footer class="entry-footer">
 
-<span title='2026-03-28 12:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1453 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+<span title='2026-03-28 12:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1475 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
   <a class="entry-link" aria-label="post link to DeerFlow 源码解析（三）：主从 Agent 协作与安全边界" href="http://localhost:1313/posts/deerflow-03-multi-agent-collaboration/"></a>
 </article>
 
@@ -237,14 +239,15 @@ graph TD User([用户]) --&gt; Lead[Lead Agent] Lead --&gt;|task tool| SA1[子 A
     </h2>
   </header>
   <div class="entry-content">
-    <p>上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。
+    <p> DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇（本文）：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。
 系统提示词不是一个字符串，是一个条件组装过程 DeerFlow 的主 Agent 系统提示词不是写死在代码里的一段话。apply_prompt_template() 根据运行时配置，从 12 个可选 section 中挑选需要的部分，拼成最终的 prompt：
 # backend/packages/harness/deerflow/agents/lead_agent/prompt.py:468 def apply_prompt_template( subagent_enabled: bool = False, max_concurrent_subagents: int = 3, *, agent_name: str | None = None, available_skills: set[str] | None = None, ) -&gt; str: memory_context = _get_memory_context(agent_name) subagent_section = _build_subagent_section(n) if subagent_enabled else &#34;&#34; skills_section = get_skills_prompt_section(available_skills) deferred_tools_section = get_deferred_tools_prompt_section() acp_section = _build_acp_section() prompt = SYSTEM_PROMPT_TEMPLATE.format( agent_name=agent_name or &#34;DeerFlow 2.0&#34;, soul=get_agent_soul(agent_name), skills_section=skills_section, deferred_tools_section=deferred_tools_section, memory_context=memory_context, subagent_section=subagent_section, # ... ) return prompt &#43; f&#34;\n&lt;current_date&gt;{datetime.now().strftime(&#39;%Y-%m-%d, %A&#39;)}&lt;/current_date&gt;&#34; 每个 placeholder 背后都有一个独立的加载函数和条件判断。我们逐个看它们什么时候被注入、什么时候被跳过。
 ...</p>
   </div>
   <footer class="entry-footer">
 
-<span title='2026-03-28 11:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>742 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+<span title='2026-03-28 11:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>763 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
   <a class="entry-link" aria-label="post link to DeerFlow 源码解析（二）：系统提示词工程与上下文架构" href="http://localhost:1313/posts/deerflow-02-prompt-engineering-context/"></a>
 </article>
 
@@ -254,7 +257,8 @@ graph TD User([用户]) --&gt; Lead[Lead Agent] Lead --&gt;|task tool| SA1[子 A
     </h2>
   </header>
   <div class="entry-content">
-    <p>DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph &#43; FastAPI &#43; Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
+    <p> DeerFlow 源码解析系列目录
+导读：AI Agent 框架的选择与 DeerFlow 的定位 第一篇（本文）：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph &#43; FastAPI &#43; Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
 第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？
 四个服务，各司其职 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：
 ┌─────────────┐ │ Browser │ └──────┬──────┘ │ :2026 ┌──────▼──────┐ │ nginx │ ← 唯一入口 ├─────────────┤ │ /api/langgraph/* → LangGraph Server (:2024) Agent 运行时 │ /api/models → Gateway (:8001) 配置/管理 API │ /api/skills → Gateway (:8001) │ /api/threads/*/uploads → Gateway (:8001) │ /* → Frontend (:3000) Next.js UI └─────────────┘ 一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&#34;管理侧&#34;的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。
@@ -262,8 +266,27 @@ graph TD User([用户]) --&gt; Lead[Lead Agent] Lead --&gt;|task tool| SA1[子 A
   </div>
   <footer class="entry-footer">
 
-<span title='2026-03-28 10:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1094 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+<span title='2026-03-28 10:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1116 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
   <a class="entry-link" aria-label="post link to DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期" href="http://localhost:1313/posts/deerflow-01-chat-request-lifecycle/"></a>
+</article>
+
+<article class="post-entry tag-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（〇）：导读——AI Agent 框架的选择与 DeerFlow 的定位
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p> DeerFlow 源码解析系列目录
+导读（本文）：AI Agent 框架的选择与 DeerFlow 的定位 第一篇：一个 Chat 请求的完整生命周期 第二篇：系统提示词工程与上下文架构 第三篇：主从 Agent 协作与安全边界 第四篇：Skills、MCP 与工具生态 第五篇：沙箱隔离与代码执行 第六篇：长期记忆、IM 通道与多端接入 第七篇：Harness Engineering 工程实践 2025 年下半年到 2026 年初，AI Agent 框架进入了快速分化期。LangGraph 打地基，OpenAI Agents SDK 走极简路线，CrewAI 和 AutoGen 押注多 Agent 协作，Claude Code 把终端编程助手做成了标杆，OpenCode 用 TypeScript 做了一个开源的多模型终端编程助手。
+DeerFlow 在这个光谱上处于什么位置？为什么我们选择对它做七篇源码深度解析？这篇导读先回答这两个问题，再给出整个系列的阅读路线。
+一、当前 AI Agent 框架的分层 把市面上主要的 Agent 框架摆在一起，可以按抽象层级分成三层：
+┌─────────────────────────────────────────────────────┐ │ 应用层 (Application) │ │ Claude Code · OpenCode/Crush · DeerFlow │ │ → 直接面向终端用户，开箱即用 │ ├─────────────────────────────────────────────────────┤ │ 编排层 (Orchestration) │ │ CrewAI · AutoGen · OpenAI Agents SDK │ │ → 提供多 Agent 协作模式，用户组装自己的应用 │ ├─────────────────────────────────────────────────────┤ │ 基础设施层 (Infrastructure) │ │ LangGraph │ │ → 状态机 &#43; 持久化执行，不关心 Agent 怎么用 │ └─────────────────────────────────────────────────────┘ 基础设施层只有 LangGraph 一个。它提供图状态机、持久化 checkpoint、human-in-the-loop 原语，但不提供任何关于&#34;Agent 应该长什么样&#34;的意见。你拿到的是一堆积木，怎么搭是你的事。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 09:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>5 min</span>&nbsp;·&nbsp;<span>913 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（〇）：导读——AI Agent 框架的选择与 DeerFlow 的定位" href="http://localhost:1313/posts/deerflow-00-introduction/"></a>
 </article>
     </main>
     
