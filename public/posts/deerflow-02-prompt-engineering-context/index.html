@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>DeerFlow 源码解析（二）：系统提示词工程与上下文架构 | Linger-AI Space</title>
+<meta name="keywords" content="AI, 技术, DeerFlow">
+<meta name="description" content="上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。
+系统提示词不是一个字符串，是一个条件组装过程
+DeerFlow 的主 Agent 系统提示词不是写死在代码里的一段话。apply_prompt_template() 根据运行时配置，从 12 个可选 section 中挑选需要的部分，拼成最终的 prompt：
+# backend/packages/harness/deerflow/agents/lead_agent/prompt.py:468
+def apply_prompt_template(
+    subagent_enabled: bool = False,
+    max_concurrent_subagents: int = 3,
+    *,
+    agent_name: str | None = None,
+    available_skills: set[str] | None = None,
+) -&gt; str:
+    memory_context = _get_memory_context(agent_name)
+    subagent_section = _build_subagent_section(n) if subagent_enabled else &#34;&#34;
+    skills_section = get_skills_prompt_section(available_skills)
+    deferred_tools_section = get_deferred_tools_prompt_section()
+    acp_section = _build_acp_section()
+
+    prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        agent_name=agent_name or &#34;DeerFlow 2.0&#34;,
+        soul=get_agent_soul(agent_name),
+        skills_section=skills_section,
+        deferred_tools_section=deferred_tools_section,
+        memory_context=memory_context,
+        subagent_section=subagent_section,
+        # ...
+    )
+    return prompt &#43; f&#34;\n&lt;current_date&gt;{datetime.now().strftime(&#39;%Y-%m-%d, %A&#39;)}&lt;/current_date&gt;&#34;
+每个 placeholder 背后都有一个独立的加载函数和条件判断。我们逐个看它们什么时候被注入、什么时候被跳过。">
+<meta name="author" content="Linger">
+<link rel="canonical" href="http://localhost:1313/posts/deerflow-02-prompt-engineering-context/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/deerflow-02-prompt-engineering-context/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/bulletin" title="灵儿情报站">
+                    <span>灵儿情报站</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/archives" title="归档">
+                    <span>归档</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      DeerFlow 源码解析（二）：系统提示词工程与上下文架构
+    </h1>
+    <div class="post-meta">
+
+<span title='2026-03-28 11:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>742 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。</p>
+<h2 id="系统提示词不是一个字符串是一个条件组装过程">系统提示词不是一个字符串，是一个条件组装过程<a hidden class="anchor" aria-hidden="true" href="#系统提示词不是一个字符串是一个条件组装过程">#</a></h2>
+<p>DeerFlow 的主 Agent 系统提示词不是写死在代码里的一段话。<code>apply_prompt_template()</code> 根据运行时配置，从 12 个可选 section 中挑选需要的部分，拼成最终的 prompt：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/lead_agent/prompt.py:468</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">apply_prompt_template</span>(
+</span></span><span style="display:flex;"><span>    subagent_enabled: bool <span style="color:#f92672">=</span> <span style="color:#66d9ef">False</span>,
+</span></span><span style="display:flex;"><span>    max_concurrent_subagents: int <span style="color:#f92672">=</span> <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>,
+</span></span><span style="display:flex;"><span>    agent_name: str <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">None</span>,
+</span></span><span style="display:flex;"><span>    available_skills: set[str] <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">None</span>,
+</span></span><span style="display:flex;"><span>) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    memory_context <span style="color:#f92672">=</span> _get_memory_context(agent_name)
+</span></span><span style="display:flex;"><span>    subagent_section <span style="color:#f92672">=</span> _build_subagent_section(n) <span style="color:#66d9ef">if</span> subagent_enabled <span style="color:#66d9ef">else</span> <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    skills_section <span style="color:#f92672">=</span> get_skills_prompt_section(available_skills)
+</span></span><span style="display:flex;"><span>    deferred_tools_section <span style="color:#f92672">=</span> get_deferred_tools_prompt_section()
+</span></span><span style="display:flex;"><span>    acp_section <span style="color:#f92672">=</span> _build_acp_section()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> SYSTEM_PROMPT_TEMPLATE<span style="color:#f92672">.</span>format(
+</span></span><span style="display:flex;"><span>        agent_name<span style="color:#f92672">=</span>agent_name <span style="color:#f92672">or</span> <span style="color:#e6db74">&#34;DeerFlow 2.0&#34;</span>,
+</span></span><span style="display:flex;"><span>        soul<span style="color:#f92672">=</span>get_agent_soul(agent_name),
+</span></span><span style="display:flex;"><span>        skills_section<span style="color:#f92672">=</span>skills_section,
+</span></span><span style="display:flex;"><span>        deferred_tools_section<span style="color:#f92672">=</span>deferred_tools_section,
+</span></span><span style="display:flex;"><span>        memory_context<span style="color:#f92672">=</span>memory_context,
+</span></span><span style="display:flex;"><span>        subagent_section<span style="color:#f92672">=</span>subagent_section,
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># ...</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> prompt <span style="color:#f92672">+</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&lt;current_date&gt;</span><span style="color:#e6db74">{</span>datetime<span style="color:#f92672">.</span>now()<span style="color:#f92672">.</span>strftime(<span style="color:#e6db74">&#39;%Y-%m-</span><span style="color:#e6db74">%d</span><span style="color:#e6db74">, %A&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">&lt;/current_date&gt;&#34;</span>
+</span></span></code></pre></div><p>每个 placeholder 背后都有一个独立的加载函数和条件判断。我们逐个看它们什么时候被注入、什么时候被跳过。</p>
+<h2 id="提示词的-12-个-section">提示词的 12 个 Section<a hidden class="anchor" aria-hidden="true" href="#提示词的-12-个-section">#</a></h2>
+<p><code>SYSTEM_PROMPT_TEMPLATE</code> 的结构可以用一张表概括：</p>
+<table>
+  <thead>
+      <tr>
+          <th>#</th>
+          <th>Section</th>
+          <th>始终加载？</th>
+          <th>注入条件</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td><code>&lt;role&gt;</code></td>
+          <td>是</td>
+          <td>—</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td><code>{soul}</code></td>
+          <td>否</td>
+          <td>该 Agent 有 <code>SOUL.md</code> 文件</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td><code>{memory_context}</code></td>
+          <td>否</td>
+          <td>memory 启用 + injection_enabled + 有内容</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td><code>&lt;thinking_style&gt;</code></td>
+          <td>是</td>
+          <td>— （其中 <code>{subagent_thinking}</code> 仅 subagent_enabled 时展开）</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td><code>&lt;clarification_system&gt;</code></td>
+          <td>是</td>
+          <td>—</td>
+      </tr>
+      <tr>
+          <td>6</td>
+          <td><code>{skills_section}</code></td>
+          <td>否</td>
+          <td>有已启用的 skills</td>
+      </tr>
+      <tr>
+          <td>7</td>
+          <td><code>{deferred_tools_section}</code></td>
+          <td>否</td>
+          <td>tool_search 启用 + 注册表非空</td>
+      </tr>
+      <tr>
+          <td>8</td>
+          <td><code>{subagent_section}</code></td>
+          <td>否</td>
+          <td>subagent_enabled=True</td>
+      </tr>
+      <tr>
+          <td>9</td>
+          <td><code>&lt;working_directory&gt;</code></td>
+          <td>是</td>
+          <td>— （其中 <code>{acp_section}</code> 仅 ACP 配置存在时展开）</td>
+      </tr>
+      <tr>
+          <td>10</td>
+          <td><code>&lt;response_style&gt;</code></td>
+          <td>是</td>
+          <td>—</td>
+      </tr>
+      <tr>
+          <td>11</td>
+          <td><code>&lt;citations&gt;</code></td>
+          <td>是</td>
+          <td>—</td>
+      </tr>
+      <tr>
+          <td>12</td>
+          <td><code>&lt;critical_reminders&gt;</code></td>
+          <td>是</td>
+          <td>— （其中 <code>{subagent_reminder}</code> 仅 subagent_enabled 时展开）</td>
+      </tr>
+  </tbody>
+</table>
+<p>追加：<code>&lt;current_date&gt;</code> 在最后拼接，不在模板内。</p>
+<p>这意味着在 Flash 模式下（subagent_enabled=False, 没有自定义 Agent、没有记忆），提示词是一个精简版本。而在 Ultra 模式下（全部开启），提示词会膨胀几百行。这种按需组装的策略，让每种模式都只携带必要的上下文。</p>
+<h2 id="几个关键-section-的设计">几个关键 Section 的设计<a hidden class="anchor" aria-hidden="true" href="#几个关键-section-的设计">#</a></h2>
+<h3 id="soul一个-markdown-文件定义人格">Soul：一个 Markdown 文件定义人格<a hidden class="anchor" aria-hidden="true" href="#soul一个-markdown-文件定义人格">#</a></h3>
+<p><code>get_agent_soul(agent_name)</code> 会尝试读取 Agent 目录下的 <code>SOUL.md</code> 文件。如果存在，整个文件内容被包裹在 <code>&lt;soul&gt;</code> 标签中注入提示词。</p>
+<p>这个设计的好处是：Agent 的&quot;人格&quot;和&quot;能力&quot;完全解耦。框架负责能力（工具、中间件、记忆），SOUL.md 只负责风格和价值观。创建一个新 Agent 时，写一个 SOUL.md 就能改变它的行为风格，不需要碰任何代码。</p>
+<h3 id="clarify--plan--act不是建议是强制">CLARIFY → PLAN → ACT：不是建议，是强制<a hidden class="anchor" aria-hidden="true" href="#clarify--plan--act不是建议是强制">#</a></h3>
+<p>提示词中最长的 section 是 <code>&lt;clarification_system&gt;</code>，大约 70 行。它定义了一个严格的三阶段工作流：</p>
+<pre tabindex="0"><code>1. FIRST: 分析请求——哪些不清楚、缺失、模糊
+2. SECOND: 如果需要澄清，立即调用 ask_clarification，不要开始工作
+3. THIRD: 澄清解决后，再规划和执行
+</code></pre><p>并且列举了 5 种必须澄清的场景（缺失信息、模糊需求、方案选择、危险操作、建议确认），每种都有具体示例和 <code>REQUIRED ACTION</code>。</p>
+<p>但提示词只是&quot;软约束&quot;——LLM 可以无视它。所以 DeerFlow 用 <code>ClarificationMiddleware</code> 做了&quot;硬约束&quot;：当 Agent 调用 <code>ask_clarification</code> 工具时，中间件返回 <code>Command(goto=END)</code>，<strong>物理中断</strong>整个 Agent Loop。Agent 没法在澄清后继续执行，必须等用户回复。</p>
+<p>这是提示词和中间件配合的典型例子：提示词告诉 LLM &ldquo;应该&quot;怎么做，中间件确保它&quot;不得不&quot;这么做。</p>
+<h3 id="skills只给目录不给全文">Skills：只给目录，不给全文<a hidden class="anchor" aria-hidden="true" href="#skills只给目录不给全文">#</a></h3>
+<p>Skills section 的设计体现了&quot;渐进式加载&quot;的思路。<code>get_skills_prompt_section()</code> 加载所有已启用的 skill，但只把 <strong>名称、描述和文件路径</strong> 放进提示词：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/lead_agent/prompt.py:403</span>
+</span></span><span style="display:flex;"><span>skill_items <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span><span style="color:#f92672">.</span>join(
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;    &lt;skill&gt;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;        &lt;name&gt;</span><span style="color:#e6db74">{</span>skill<span style="color:#f92672">.</span>name<span style="color:#e6db74">}</span><span style="color:#e6db74">&lt;/name&gt;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;        &lt;description&gt;</span><span style="color:#e6db74">{</span>skill<span style="color:#f92672">.</span>description<span style="color:#e6db74">}</span><span style="color:#e6db74">&lt;/description&gt;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;        &lt;location&gt;</span><span style="color:#e6db74">{</span>skill<span style="color:#f92672">.</span>get_container_file_path(<span style="color:#f92672">...</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">&lt;/location&gt;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;    &lt;/skill&gt;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> skill <span style="color:#f92672">in</span> skills
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><p>生成的 XML 类似：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#f92672">&lt;available_skills&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;skill&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;name&gt;</span>deep-research<span style="color:#f92672">&lt;/name&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;description&gt;</span>Use this skill for ANY question that requires web research...<span style="color:#f92672">&lt;/description&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;location&gt;</span>/mnt/skills/public/deep-research/SKILL.md<span style="color:#f92672">&lt;/location&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;/skill&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/available_skills&gt;</span>
+</span></span></code></pre></div><p>然后在提示词中指示 Agent 使用&quot;Progressive Loading Pattern&rdquo;：</p>
+<blockquote>
+<ol>
+<li>当用户查询匹配某个 skill 时，立即 <code>read_file</code> 加载 skill 主文件</li>
+<li>阅读 skill 的工作流和指令</li>
+<li>Skill 文件中会引用外部资源</li>
+<li><strong>仅在执行时按需加载引用的资源</strong></li>
+</ol>
+</blockquote>
+<p>一个 skill 文件可能有 100-200 行。如果 17 个 skill 全部展开放进提示词，会占用几千 token。这种&quot;目录在提示词里，全文在文件里&quot;的设计，把 skill 对 context 的消耗从 O(n) 降到了 O(1)。（第 4 篇会详细分析 skill 的三层加载架构。）</p>
+<h2 id="上下文窗口管理三道防线">上下文窗口管理：三道防线<a hidden class="anchor" aria-hidden="true" href="#上下文窗口管理三道防线">#</a></h2>
+<p>大模型的上下文窗口有限。随着对话轮次增加，消息历史不断膨胀。DeerFlow 用三个机制协同控制上下文大小。</p>
+<h3 id="防线一summarization压缩消息历史">防线一：Summarization——压缩消息历史<a hidden class="anchor" aria-hidden="true" href="#防线一summarization压缩消息历史">#</a></h3>
+<p><code>SummarizationMiddleware</code> 在 <code>wrap_model_call</code> 阶段工作。它监控消息历史的大小，当超过阈值时，把旧消息交给一个轻量模型做摘要，用摘要替换原始消息。</p>
+<p>触发条件在 <code>config.yaml</code> 中配置，支持三种度量方式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/config/summarization_config.py:32</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SummarizationConfig</span>(BaseModel):
+</span></span><span style="display:flex;"><span>    trigger: ContextSize <span style="color:#f92672">|</span> list[ContextSize] <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span>  <span style="color:#75715e"># 何时触发</span>
+</span></span><span style="display:flex;"><span>    keep: ContextSize           <span style="color:#75715e"># 压缩后保留多少（默认: 最近 20 条消息）</span>
+</span></span><span style="display:flex;"><span>    trim_tokens_to_summarize: int <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">4000</span>  <span style="color:#75715e"># 发给摘要模型的最大 token</span>
+</span></span></code></pre></div><p><code>trigger</code> 可以是一个列表——比如&quot;50 条消息或 80% token 占用率，哪个先到就触发&quot;。<code>keep</code> 决定压缩后保留多少最近消息。<code>trim_tokens_to_summarize</code> 限制发给摘要模型的文本量，控制摘要的成本。</p>
+<p>关键设计选择：<strong>摘要模型可以和主模型不同</strong>。配置中的 <code>model_name</code> 字段允许用一个更便宜的模型做摘要（比如用 GPT-4o-mini 给 Claude Opus 做摘要），降低运行成本。</p>
+<h3 id="防线二memory-token-budget记忆注入有硬上限">防线二：Memory Token Budget——记忆注入有硬上限<a hidden class="anchor" aria-hidden="true" href="#防线二memory-token-budget记忆注入有硬上限">#</a></h3>
+<p>长期记忆被注入到 <code>{memory_context}</code> 这个 section 中。但注入量不是无限制的——<code>format_memory_for_injection()</code> 用 tiktoken 做精确的 token 计数，有一个硬上限（默认 2000 token）。</p>
+<p>分配策略按优先级从高到低：</p>
+<div class="mermaid">
+  graph TD
+    A[User Context<br/>workContext + personalContext + topOfMind<br/>优先级最高] --> B[History<br/>recentMonths + earlierContext<br/>中优先级]
+    B --> C[Facts<br/>按 confidence 从高到低逐条填充<br/>直到 token 预算耗尽]
+    C --> D{总量超过 max_tokens?}
+    D -- 是 --> E[字符级截断到 95% 预算]
+    D -- 否 --> F[注入完成]
+</div>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/agents/memory/prompt.py:255</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Facts 按置信度排序，逐条填充直到 token 预算耗尽</span>
+</span></span><span style="display:flex;"><span>ranked_facts <span style="color:#f92672">=</span> sorted(
+</span></span><span style="display:flex;"><span>    facts_data,
+</span></span><span style="display:flex;"><span>    key<span style="color:#f92672">=</span><span style="color:#66d9ef">lambda</span> fact: _coerce_confidence(fact<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;confidence&#34;</span>), default<span style="color:#f92672">=</span><span style="color:#ae81ff">0.0</span>),
+</span></span><span style="display:flex;"><span>    reverse<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> fact <span style="color:#f92672">in</span> ranked_facts:
+</span></span><span style="display:flex;"><span>    line_tokens <span style="color:#f92672">=</span> _count_tokens(line_text)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> running_tokens <span style="color:#f92672">+</span> line_tokens <span style="color:#f92672">&lt;=</span> max_tokens:
+</span></span><span style="display:flex;"><span>        fact_lines<span style="color:#f92672">.</span>append(line)
+</span></span><span style="display:flex;"><span>        running_tokens <span style="color:#f92672">+=</span> line_tokens
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>  <span style="color:#75715e"># 预算用完，停止添加</span>
+</span></span></code></pre></div><p>这里有个工程细节：token 计数不是每次都对整个字符串重新计算，而是<strong>增量累加</strong>每条 fact 的 token 数。对于 100 条 fact 的场景，这避免了 100 次完整 tokenize 操作。</p>
+<h3 id="防线三deferred-tool-filtering工具-schema-按需加载">防线三：Deferred Tool Filtering——工具 Schema 按需加载<a hidden class="anchor" aria-hidden="true" href="#防线三deferred-tool-filtering工具-schema-按需加载">#</a></h3>
+<p>这是一个容易被忽略的 context 消耗源。每个工具在通过 <code>bind_tools()</code> 绑定到模型时，它的完整 JSON Schema（包括参数描述、类型定义）都会进入上下文。如果通过 MCP 接入了大量外部工具，Schema 的 token 消耗会很可观。</p>
+<p><code>DeferredToolFilterMiddleware</code> 的做法是：在 <code>wrap_model_call</code> 阶段，把&quot;延迟工具&quot;的 Schema 从 <code>bind_tools</code> 列表中移除。Agent 只在提示词中看到这些工具的名称列表（不到一行一个），需要时通过 <code>tool_search</code> 工具查询完整 Schema。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 提示词中只列出名称</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;</span>available<span style="color:#f92672">-</span>deferred<span style="color:#f92672">-</span>tools<span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>mcp_github_create_issue, mcp_github_list_repos, mcp_slack_send_message, <span style="color:#f92672">...</span>
+</span></span><span style="display:flex;"><span>Use <span style="color:#960050;background-color:#1e0010">`</span>tool_search<span style="color:#960050;background-color:#1e0010">`</span> to discover <span style="color:#f92672">and</span> load their full schemas when needed<span style="color:#f92672">.</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/</span>available<span style="color:#f92672">-</span>deferred<span style="color:#f92672">-</span>tools<span style="color:#f92672">&gt;</span>
+</span></span></code></pre></div><p>这实质上是把工具从 Tier 1（始终在上下文中）降到了 Tier 3（运行时按需加载），只保留 Tier 2 层的名称目录在提示词里。</p>
+<h2 id="对比主-agent-vs-子-agent-的提示词">对比：主 Agent vs 子 Agent 的提示词<a hidden class="anchor" aria-hidden="true" href="#对比主-agent-vs-子-agent-的提示词">#</a></h2>
+<p>对比能更清楚地看到 DeerFlow 在上下文管理上的意图。子 Agent（General-Purpose）的提示词只有 26 行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/subagents/builtins/general_purpose.py:19</span>
+</span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;You are a general-purpose subagent working on a delegated task.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">Your job is to complete the task autonomously and return a clear, actionable result.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&lt;guidelines&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- Focus on completing the delegated task efficiently
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- Use available tools as needed to accomplish the goal
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- Think step by step but act decisively
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- If you encounter issues, explain them clearly in your response
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- Return a concise summary of what you accomplished
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- Do NOT ask for clarification - work with the information provided
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&lt;/guidelines&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">...
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;</span>
+</span></span></code></pre></div><p>两者的差异：</p>
+<table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>主 Agent</th>
+          <th>子 Agent</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>提示词长度</td>
+          <td>~336 行模板 + 动态 section</td>
+          <td>26 行</td>
+      </tr>
+      <tr>
+          <td>记忆注入</td>
+          <td>有（2000 token 预算）</td>
+          <td>无</td>
+      </tr>
+      <tr>
+          <td>Soul 人格</td>
+          <td>有（SOUL.md）</td>
+          <td>无</td>
+      </tr>
+      <tr>
+          <td>澄清机制</td>
+          <td>完整的 5 场景澄清系统</td>
+          <td>&ldquo;Do NOT ask for clarification&rdquo;</td>
+      </tr>
+      <tr>
+          <td>技能目录</td>
+          <td>所有已启用技能的目录</td>
+          <td>无</td>
+      </tr>
+      <tr>
+          <td>子 Agent 编排</td>
+          <td>完整的批次规划指令</td>
+          <td>禁止（<code>task</code> 在 disallowed_tools 中）</td>
+      </tr>
+      <tr>
+          <td>思考风格</td>
+          <td>详细的 thinking_style 指导</td>
+          <td>一句话：&ldquo;Think step by step but act decisively&rdquo;</td>
+      </tr>
+  </tbody>
+</table>
+<p>子 Agent 被设计成一个&quot;执行者&quot;：接到任务就干，干完就汇报。它不需要理解用户、不需要澄清意图、不需要长期记忆。这种刻意的&quot;上下文瘦身&quot;有两个目的：一是减少 token 消耗（子 Agent 可能被并行启动 3 个），二是减少干扰——给子 Agent 太多无关上下文只会让它表现更差（Dex Horthy 的研究表明，上下文占用超过 40% 后性能开始下降）。</p>
+<h2 id="小结">小结<a hidden class="anchor" aria-hidden="true" href="#小结">#</a></h2>
+<p>DeerFlow 的提示词工程不是&quot;写一段好的 prompt&quot;这么简单。它是一个多层次的上下文管理系统：</p>
+<ul>
+<li><strong>模板层</strong>：12 个条件 section，按运行模式动态组装</li>
+<li><strong>内容层</strong>：Soul 定义人格，Skills 给目录不给全文，Memory 有 token 预算</li>
+<li><strong>运行时层</strong>：Summarization 压缩历史，Deferred Tool Filter 隐藏工具 Schema</li>
+<li><strong>执行层</strong>：提示词的&quot;软约束&quot;由中间件的&quot;硬约束&quot;兜底</li>
+</ul>
+<p>下一篇我们看当主 Agent 决定把任务委派给子 Agent 时，两者之间的隔离机制和安全边界是如何实现的。</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
+      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
+      <li><a href="http://localhost:1313/tags/deerflow/">DeerFlow</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ 
+        startOnLoad: true,
+        theme: 'default' 
+    });
+</script>
+
+
+<div style="
+    text-align: center;
+    font-size: 12px;
+    color: var(--secondary);
+    margin-top: 10px;
+    opacity: 0.8;">
+
+    
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+    
+    <span id="busuanzi_container_site_pv">
+        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
+    </span>
+    &nbsp;·&nbsp;
+    <span id="busuanzi_container_site_uv">
+        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
+    </span>
+</div>
+
+
+<script>
+(function() {
+    var el = document.getElementById('busuanzi_container_page_pv');
+    if (!el) return;
+    var check = setInterval(function() {
+        var val = document.getElementById('busuanzi_value_page_pv');
+        if (val && val.innerText !== '') {
+            el.style.display = 'inline';
+            clearInterval(check);
+        }
+    }, 200);
+    setTimeout(function() { clearInterval(check); }, 10000);
+})();
+</script>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

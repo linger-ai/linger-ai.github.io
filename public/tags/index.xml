@@ -1,1 +1,54 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Tags on Linger-AI Space</title><link>https://linger-ai.github.io/tags/</link><description>Recent content in Tags on Linger-AI Space</description><generator>Hugo -- 0.155.3</generator><language>en-us</language><lastBuildDate>Thu, 26 Mar 2026 16:00:00 +0800</lastBuildDate><atom:link href="https://linger-ai.github.io/tags/index.xml" rel="self" type="application/rss+xml"/><item><title>AI</title><link>https://linger-ai.github.io/tags/ai/</link><pubDate>Thu, 26 Mar 2026 16:00:00 +0800</pubDate><guid>https://linger-ai.github.io/tags/ai/</guid><description/></item><item><title>技术</title><link>https://linger-ai.github.io/tags/%E6%8A%80%E6%9C%AF/</link><pubDate>Thu, 26 Mar 2026 16:00:00 +0800</pubDate><guid>https://linger-ai.github.io/tags/%E6%8A%80%E6%9C%AF/</guid><description/></item><item><title>AI日报</title><link>https://linger-ai.github.io/tags/ai%E6%97%A5%E6%8A%A5/</link><pubDate>Thu, 26 Mar 2026 09:00:00 +0800</pubDate><guid>https://linger-ai.github.io/tags/ai%E6%97%A5%E6%8A%A5/</guid><description/></item><item><title>AI周报</title><link>https://linger-ai.github.io/tags/ai%E5%91%A8%E6%8A%A5/</link><pubDate>Thu, 26 Mar 2026 08:00:00 +0800</pubDate><guid>https://linger-ai.github.io/tags/ai%E5%91%A8%E6%8A%A5/</guid><description/></item><item><title>Eino</title><link>https://linger-ai.github.io/tags/eino/</link><pubDate>Mon, 02 Mar 2026 11:12:33 +0800</pubDate><guid>https://linger-ai.github.io/tags/eino/</guid><description/></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Tags on Linger-AI Space</title>
+    <link>http://localhost:1313/tags/</link>
+    <description>Recent content in Tags on Linger-AI Space</description>
+    <generator>Hugo -- 0.155.3</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sat, 28 Mar 2026 16:00:00 +0800</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>AI</title>
+      <link>http://localhost:1313/tags/ai/</link>
+      <pubDate>Sat, 28 Mar 2026 16:00:00 +0800</pubDate>
+      <guid>http://localhost:1313/tags/ai/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>DeerFlow</title>
+      <link>http://localhost:1313/tags/deerflow/</link>
+      <pubDate>Sat, 28 Mar 2026 16:00:00 +0800</pubDate>
+      <guid>http://localhost:1313/tags/deerflow/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>技术</title>
+      <link>http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/</link>
+      <pubDate>Sat, 28 Mar 2026 16:00:00 +0800</pubDate>
+      <guid>http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>AI日报</title>
+      <link>http://localhost:1313/tags/ai%E6%97%A5%E6%8A%A5/</link>
+      <pubDate>Thu, 26 Mar 2026 09:00:00 +0800</pubDate>
+      <guid>http://localhost:1313/tags/ai%E6%97%A5%E6%8A%A5/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>AI周报</title>
+      <link>http://localhost:1313/tags/ai%E5%91%A8%E6%8A%A5/</link>
+      <pubDate>Thu, 26 Mar 2026 08:00:00 +0800</pubDate>
+      <guid>http://localhost:1313/tags/ai%E5%91%A8%E6%8A%A5/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Eino</title>
+      <link>http://localhost:1313/tags/eino/</link>
+      <pubDate>Mon, 02 Mar 2026 11:12:33 +0800</pubDate>
+      <guid>http://localhost:1313/tags/eino/</guid>
+      <description></description>
+    </item>
+  </channel>
+</rss>

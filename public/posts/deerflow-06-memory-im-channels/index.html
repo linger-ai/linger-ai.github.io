@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>DeerFlow 源码解析（六）：长期记忆、IM 通道与多端接入 | Linger-AI Space</title>
+<meta name="keywords" content="AI, 技术, DeerFlow">
+<meta name="description" content="
+本文是 DeerFlow 源码解析系列的第六篇。前五篇分别覆盖了请求生命周期、提示词工程、主从 Agent 协作、Skills/MCP 工具生态和沙箱隔离。本篇拆解两个相对独立但直接决定&quot;能不能日常用&quot;的子系统——长期记忆（Memory）和 IM 通道（Channels）。
+
+一个 AI Agent 要从&quot;演示品&quot;走向&quot;日常使用的工具&quot;，需要解决两个根本问题：记住用户和触达用户。DeerFlow 的 Memory 子系统负责前者，Channels 子系统负责后者。它们在代码层面分别位于 Harness 层和 App 层，依赖方向严格单向，但在功能上形成了一个完整的闭环——Agent 通过 IM 通道接收消息、处理请求，处理完成后将对话摘要写入长期记忆，下次任何通道上的对话都能受益于这些记忆。
+一、长期记忆系统架构
+1.1 存储格式
+DeerFlow 的记忆存储在一个 JSON 文件中（默认路径 backend/.deer-flow/memory.json），结构由 _create_empty_memory() 定义（updater.py:43-59）：
+def _create_empty_memory() -&gt; dict[str, Any]:
+    return {
+        &#34;version&#34;: &#34;1.0&#34;,
+        &#34;lastUpdated&#34;: datetime.utcnow().isoformat() &#43; &#34;Z&#34;,
+        &#34;user&#34;: {
+            &#34;workContext&#34;:      {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;},
+            &#34;personalContext&#34;:  {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;},
+            &#34;topOfMind&#34;:        {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;},
+        },
+        &#34;history&#34;: {
+            &#34;recentMonths&#34;:       {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;},
+            &#34;earlierContext&#34;:     {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;},
+            &#34;longTermBackground&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;},
+        },
+        &#34;facts&#34;: [],
+    }
+这个设计将记忆分为三个维度：
+
+  
+      
+          维度
+          Section
+          用途
+          更新频率
+      
+  
+  
+      
+          User Context
+          workContext
+          职业角色、项目、技术栈（2-3 句）
+          低
+      
+      
+          
+          personalContext
+          语言、沟通偏好、兴趣（1-2 句）
+          低
+      
+      
+          
+          topOfMind
+          当前多个并行关注点（3-5 句）
+          高
+      
+      
+          History
+          recentMonths
+          近 1-3 月活动详情（4-6 句）
+          中
+      
+      
+          
+          earlierContext
+          3-12 月前的模式（3-5 句）
+          低
+      
+      
+          
+          longTermBackground
+          不变的基础背景（2-4 句）
+          极低
+      
+      
+          Facts
+          facts[]
+          离散事实条目，带置信度、分类、来源
+          每次对话
+      
+  
+
+Facts 的数据结构比 summary 更有意思：">
+<meta name="author" content="Linger">
+<link rel="canonical" href="http://localhost:1313/posts/deerflow-06-memory-im-channels/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/deerflow-06-memory-im-channels/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/bulletin" title="灵儿情报站">
+                    <span>灵儿情报站</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/archives" title="归档">
+                    <span>归档</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      DeerFlow 源码解析（六）：长期记忆、IM 通道与多端接入
+    </h1>
+    <div class="post-meta">
+
+<span title='2026-03-28 15:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1672 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+
+</div>
+  </header> 
+  <div class="post-content"><blockquote>
+<p>本文是 DeerFlow 源码解析系列的第六篇。前五篇分别覆盖了请求生命周期、提示词工程、主从 Agent 协作、Skills/MCP 工具生态和沙箱隔离。本篇拆解两个相对独立但直接决定&quot;能不能日常用&quot;的子系统——长期记忆（Memory）和 IM 通道（Channels）。</p>
+</blockquote>
+<p>一个 AI Agent 要从&quot;演示品&quot;走向&quot;日常使用的工具&quot;，需要解决两个根本问题：<strong>记住用户</strong>和<strong>触达用户</strong>。DeerFlow 的 Memory 子系统负责前者，Channels 子系统负责后者。它们在代码层面分别位于 Harness 层和 App 层，依赖方向严格单向，但在功能上形成了一个完整的闭环——Agent 通过 IM 通道接收消息、处理请求，处理完成后将对话摘要写入长期记忆，下次任何通道上的对话都能受益于这些记忆。</p>
+<h2 id="一长期记忆系统架构">一、长期记忆系统架构<a hidden class="anchor" aria-hidden="true" href="#一长期记忆系统架构">#</a></h2>
+<h3 id="11-存储格式">1.1 存储格式<a hidden class="anchor" aria-hidden="true" href="#11-存储格式">#</a></h3>
+<p>DeerFlow 的记忆存储在一个 JSON 文件中（默认路径 <code>backend/.deer-flow/memory.json</code>），结构由 <code>_create_empty_memory()</code> 定义（<code>updater.py:43-59</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_create_empty_memory</span>() <span style="color:#f92672">-&gt;</span> dict[str, Any]:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;version&#34;</span>: <span style="color:#e6db74">&#34;1.0&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;lastUpdated&#34;</span>: datetime<span style="color:#f92672">.</span>utcnow()<span style="color:#f92672">.</span>isoformat() <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;Z&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;user&#34;</span>: {
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;workContext&#34;</span>:      {<span style="color:#e6db74">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>, <span style="color:#e6db74">&#34;updatedAt&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>},
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;personalContext&#34;</span>:  {<span style="color:#e6db74">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>, <span style="color:#e6db74">&#34;updatedAt&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>},
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;topOfMind&#34;</span>:        {<span style="color:#e6db74">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>, <span style="color:#e6db74">&#34;updatedAt&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>},
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;history&#34;</span>: {
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;recentMonths&#34;</span>:       {<span style="color:#e6db74">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>, <span style="color:#e6db74">&#34;updatedAt&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>},
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;earlierContext&#34;</span>:     {<span style="color:#e6db74">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>, <span style="color:#e6db74">&#34;updatedAt&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>},
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;longTermBackground&#34;</span>: {<span style="color:#e6db74">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>, <span style="color:#e6db74">&#34;updatedAt&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>},
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;facts&#34;</span>: [],
+</span></span><span style="display:flex;"><span>    }
+</span></span></code></pre></div><p>这个设计将记忆分为三个维度：</p>
+<table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>Section</th>
+          <th>用途</th>
+          <th>更新频率</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>User Context</strong></td>
+          <td><code>workContext</code></td>
+          <td>职业角色、项目、技术栈（2-3 句）</td>
+          <td>低</td>
+      </tr>
+      <tr>
+          <td></td>
+          <td><code>personalContext</code></td>
+          <td>语言、沟通偏好、兴趣（1-2 句）</td>
+          <td>低</td>
+      </tr>
+      <tr>
+          <td></td>
+          <td><code>topOfMind</code></td>
+          <td>当前多个并行关注点（3-5 句）</td>
+          <td>高</td>
+      </tr>
+      <tr>
+          <td><strong>History</strong></td>
+          <td><code>recentMonths</code></td>
+          <td>近 1-3 月活动详情（4-6 句）</td>
+          <td>中</td>
+      </tr>
+      <tr>
+          <td></td>
+          <td><code>earlierContext</code></td>
+          <td>3-12 月前的模式（3-5 句）</td>
+          <td>低</td>
+      </tr>
+      <tr>
+          <td></td>
+          <td><code>longTermBackground</code></td>
+          <td>不变的基础背景（2-4 句）</td>
+          <td>极低</td>
+      </tr>
+      <tr>
+          <td><strong>Facts</strong></td>
+          <td><code>facts[]</code></td>
+          <td>离散事实条目，带置信度、分类、来源</td>
+          <td>每次对话</td>
+      </tr>
+  </tbody>
+</table>
+<p>Facts 的数据结构比 summary 更有意思：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;id&#34;</span>: <span style="color:#e6db74">&#34;fact_a1b2c3d4&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;User works with LangGraph and LangChain&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;category&#34;</span>: <span style="color:#e6db74">&#34;knowledge&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;confidence&#34;</span>: <span style="color:#ae81ff">0.9</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;createdAt&#34;</span>: <span style="color:#e6db74">&#34;2026-03-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;source&#34;</span>: <span style="color:#e6db74">&#34;thread_abc123&#34;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>category</code> 支持五种分类：<code>preference</code>、<code>knowledge</code>、<code>context</code>、<code>behavior</code>、<code>goal</code>。<code>source</code> 记录了这个事实来自哪个 thread，支持溯源。</p>
+<h3 id="12-记忆缓存与失效">1.2 记忆缓存与失效<a hidden class="anchor" aria-hidden="true" href="#12-记忆缓存与失效">#</a></h3>
+<p>记忆数据不是每次都从磁盘读取。<code>updater.py:62-95</code> 实现了一个基于 mtime 的内存缓存：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>_memory_cache: dict[str <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span>, tuple[dict[str, Any], float <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span>]] <span style="color:#f92672">=</span> {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_memory_data</span>(agent_name: str <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">None</span>) <span style="color:#f92672">-&gt;</span> dict[str, Any]:
+</span></span><span style="display:flex;"><span>    file_path <span style="color:#f92672">=</span> _get_memory_file_path(agent_name)
+</span></span><span style="display:flex;"><span>    current_mtime <span style="color:#f92672">=</span> file_path<span style="color:#f92672">.</span>stat()<span style="color:#f92672">.</span>st_mtime <span style="color:#66d9ef">if</span> file_path<span style="color:#f92672">.</span>exists() <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">None</span>
+</span></span><span style="display:flex;"><span>    cached <span style="color:#f92672">=</span> _memory_cache<span style="color:#f92672">.</span>get(agent_name)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> cached <span style="color:#f92672">is</span> <span style="color:#66d9ef">None</span> <span style="color:#f92672">or</span> cached[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">!=</span> current_mtime:
+</span></span><span style="display:flex;"><span>        memory_data <span style="color:#f92672">=</span> _load_memory_from_file(agent_name)
+</span></span><span style="display:flex;"><span>        _memory_cache[agent_name] <span style="color:#f92672">=</span> (memory_data, current_mtime)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> memory_data
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> cached[<span style="color:#ae81ff">0</span>]
+</span></span></code></pre></div><p>缓存 key 是 <code>agent_name</code>（<code>None</code> 表示全局记忆），value 是 <code>(data, mtime)</code> 元组。每次读取时比对文件 mtime，如果磁盘文件被外部修改（比如用户手动编辑或另一个进程更新），缓存自动失效。这个模式在 DeerFlow 中反复出现——MCP 工具缓存、Config 缓存都使用了相同的 mtime 失效策略。</p>
+<h3 id="13-llm-驱动的记忆提取">1.3 LLM 驱动的记忆提取<a hidden class="anchor" aria-hidden="true" href="#13-llm-驱动的记忆提取">#</a></h3>
+<p>记忆更新的核心是 <code>MemoryUpdater.update_memory()</code>（<code>updater.py:284-348</code>）。它不是简单的关键词提取，而是将完整对话交给 LLM，由 LLM 判断哪些信息值得记住。</p>
+<p>整个流程：</p>
+<pre tabindex="0"><code>对话消息 → format_conversation_for_update() → 拼接到 MEMORY_UPDATE_PROMPT
+         → LLM 调用 → 解析 JSON 响应 → _apply_updates() → 上传文件清洗
+         → 原子写入磁盘
+</code></pre><h4 id="memory_update_prompt-的设计">MEMORY_UPDATE_PROMPT 的设计<a hidden class="anchor" aria-hidden="true" href="#memory_update_prompt-的设计">#</a></h4>
+<p><code>prompt.py:15-117</code> 定义了一个 117 行的详细提示词，堪称&quot;记忆管理系统的 SOUL 文件&quot;。几个关键设计决策：</p>
+<p><strong>shouldUpdate 机制</strong>：LLM 不是每次都更新所有 section。它必须为每个 section 返回 <code>shouldUpdate: true/false</code>，只有标记为 true 的才会被覆盖。这避免了&quot;信息损耗&quot;——如果这次对话没有涉及 <code>workContext</code>，就不要碰它。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;workContext&#34;</span>: { <span style="color:#f92672">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;...&#34;</span>, <span style="color:#f92672">&#34;shouldUpdate&#34;</span>: <span style="color:#66d9ef">false</span> },
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;topOfMind&#34;</span>: { <span style="color:#f92672">&#34;summary&#34;</span>: <span style="color:#e6db74">&#34;...&#34;</span>, <span style="color:#f92672">&#34;shouldUpdate&#34;</span>: <span style="color:#66d9ef">true</span> }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>置信度分级</strong>：提示词明确定义了三个置信度区间：</p>
+<ul>
+<li>0.9-1.0：用户明确陈述（&ldquo;I work on X&rdquo;）</li>
+<li>0.7-0.8：从行为/讨论中强推断</li>
+<li>0.5-0.6：推断出的模式（谨慎使用）</li>
+</ul>
+<p><strong>多语言保留</strong>：提示词要求保留专有名词和技术术语的原始语言形式，不做翻译。</p>
+<p><strong>上传文件免疫</strong>：提示词末尾的 <code>IMPORTANT</code> 规则明确禁止将文件上传事件记入记忆，因为上传文件是会话级别的资源，在后续会话中不可访问。</p>
+<h4 id="更新应用逻辑">更新应用逻辑<a hidden class="anchor" aria-hidden="true" href="#更新应用逻辑">#</a></h4>
+<p><code>_apply_updates()</code>（<code>updater.py:350-427</code>）的实现有几个精妙之处：</p>
+<ol>
+<li><strong>事实去重</strong>：通过 <code>_fact_content_key()</code> 对 content 做 strip 后比较，防止重复事实累积：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>existing_fact_keys <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    fact_key
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> fact_key <span style="color:#f92672">in</span> (
+</span></span><span style="display:flex;"><span>        _fact_content_key(fact<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;content&#34;</span>))
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> fact <span style="color:#f92672">in</span> current_memory<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;facts&#34;</span>, [])
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> fact_key <span style="color:#f92672">is</span> <span style="color:#f92672">not</span> <span style="color:#66d9ef">None</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ol start="2">
+<li><strong>置信度门槛</strong>：新事实必须达到 <code>fact_confidence_threshold</code>（默认 0.7）才能入库。这意味着 LLM 推断的低置信度信息会被丢弃：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> confidence <span style="color:#f92672">&gt;=</span> config<span style="color:#f92672">.</span>fact_confidence_threshold:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># ... 添加事实</span>
+</span></span></code></pre></div><ol start="3">
+<li><strong>数量上限与淘汰</strong>：当 facts 超过 <code>max_facts</code>（默认 100）时，按置信度排序保留 top N：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> len(current_memory[<span style="color:#e6db74">&#34;facts&#34;</span>]) <span style="color:#f92672">&gt;</span> config<span style="color:#f92672">.</span>max_facts:
+</span></span><span style="display:flex;"><span>    current_memory[<span style="color:#e6db74">&#34;facts&#34;</span>] <span style="color:#f92672">=</span> sorted(
+</span></span><span style="display:flex;"><span>        current_memory[<span style="color:#e6db74">&#34;facts&#34;</span>],
+</span></span><span style="display:flex;"><span>        key<span style="color:#f92672">=</span><span style="color:#66d9ef">lambda</span> f: f<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;confidence&#34;</span>, <span style="color:#ae81ff">0</span>),
+</span></span><span style="display:flex;"><span>        reverse<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>    )[: config<span style="color:#f92672">.</span>max_facts]
+</span></span></code></pre></div><ol start="4">
+<li><strong>事实删除</strong>：LLM 可以返回 <code>factsToRemove</code> 列表，用于删除被新信息否定的旧事实。</li>
+</ol>
+<h3 id="14-上传文件清洗">1.4 上传文件清洗<a hidden class="anchor" aria-hidden="true" href="#14-上传文件清洗">#</a></h3>
+<p><code>_strip_upload_mentions_from_memory()</code>（<code>updater.py:193-213</code>）是一个有意思的&quot;事后补救&quot;机制。即使 MEMORY_UPDATE_PROMPT 已经明确要求 LLM 不要记录上传事件，LLM 仍可能&quot;手滑&quot;。这个函数作为最后一道防线，用正则表达式从所有 summary 和 facts 中移除上传相关的句子：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>_UPLOAD_SENTENCE_RE <span style="color:#f92672">=</span> re<span style="color:#f92672">.</span>compile(
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">r</span><span style="color:#e6db74">&#34;[^.!?]*\b(?:&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">r</span><span style="color:#e6db74">&#34;upload(?:ed|ing)?(?:\s+\w+){0,3}\s+(?:file|files?|document|...)&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">r</span><span style="color:#e6db74">&#34;|file\s+upload&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">r</span><span style="color:#e6db74">&#34;|/mnt/user-data/uploads/&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">r</span><span style="color:#e6db74">&#34;|&lt;uploaded_files&gt;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">r</span><span style="color:#e6db74">&#34;)[^.!?]*[.!?]?\s*&#34;</span>,
+</span></span><span style="display:flex;"><span>    re<span style="color:#f92672">.</span>IGNORECASE,
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><p>正则故意设计得很窄——只匹配描述&quot;上传事件&quot;的句子，而不是所有涉及&quot;文件&quot;的句子。注释中明确说明了这一点：&quot;<code>User works with CSV files</code>&quot; 和 &ldquo;<code>prefers PDF export</code>&rdquo; 这样的事实不会被误删。</p>
+<h3 id="15-原子写入">1.5 原子写入<a hidden class="anchor" aria-hidden="true" href="#15-原子写入">#</a></h3>
+<p><code>_save_memory_to_file()</code>（<code>updater.py:225-264</code>）使用了经典的&quot;写临时文件 + rename&quot;模式确保原子性：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>temp_path <span style="color:#f92672">=</span> file_path<span style="color:#f92672">.</span>with_suffix(<span style="color:#e6db74">&#34;.tmp&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">with</span> open(temp_path, <span style="color:#e6db74">&#34;w&#34;</span>, encoding<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;utf-8&#34;</span>) <span style="color:#66d9ef">as</span> f:
+</span></span><span style="display:flex;"><span>    json<span style="color:#f92672">.</span>dump(memory_data, f, indent<span style="color:#f92672">=</span><span style="color:#ae81ff">2</span>, ensure_ascii<span style="color:#f92672">=</span><span style="color:#66d9ef">False</span>)
+</span></span><span style="display:flex;"><span>temp_path<span style="color:#f92672">.</span>replace(file_path)  <span style="color:#75715e"># 原子操作（大多数文件系统）</span>
+</span></span></code></pre></div><p>写完后立即更新内存缓存的 mtime，避免下次读取时不必要的磁盘 I/O。</p>
+<h2 id="二防抖队列">二、防抖队列<a hidden class="anchor" aria-hidden="true" href="#二防抖队列">#</a></h2>
+<h3 id="21-问题与方案">2.1 问题与方案<a hidden class="anchor" aria-hidden="true" href="#21-问题与方案">#</a></h3>
+<p>如果每次对话结束都立即调用 LLM 更新记忆，在快速连续对话时会产生大量不必要的 LLM 调用。<code>MemoryUpdateQueue</code>（<code>queue.py:22-166</code>）通过 30 秒防抖解决这个问题。</p>
+<div class="mermaid">
+  sequenceDiagram
+    participant MW as MemoryMiddleware
+    participant Q as MemoryUpdateQueue
+    participant T as Timer (30s)
+    participant U as MemoryUpdater
+    participant LLM
+
+    MW->>Q: add(thread_1, messages)
+    Q->>T: reset_timer(30s)
+    Note over Q: 10秒后，同一线程新消息到达
+    MW->>Q: add(thread_1, new_messages)
+    Q->>Q: 替换 thread_1 的旧条目
+    Q->>T: cancel + restart(30s)
+    Note over T: 30秒无新消息
+    T->>Q: _process_queue()
+    Q->>U: update_memory(thread_1)
+    U->>LLM: MEMORY_UPDATE_PROMPT
+    LLM-->>U: JSON response
+    U-->>Q: success
+</div>
+<h3 id="22-关键实现细节">2.2 关键实现细节<a hidden class="anchor" aria-hidden="true" href="#22-关键实现细节">#</a></h3>
+<p><strong>同 thread 替换</strong>：当同一个 thread 在防抖窗口内多次提交时，只保留最新的消息快照：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">add</span>(self, thread_id, messages, agent_name<span style="color:#f92672">=</span><span style="color:#66d9ef">None</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> self<span style="color:#f92672">.</span>_lock:
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_queue <span style="color:#f92672">=</span> [c <span style="color:#66d9ef">for</span> c <span style="color:#f92672">in</span> self<span style="color:#f92672">.</span>_queue <span style="color:#66d9ef">if</span> c<span style="color:#f92672">.</span>thread_id <span style="color:#f92672">!=</span> thread_id]
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_queue<span style="color:#f92672">.</span>append(context)
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_reset_timer()
+</span></span></code></pre></div><p><strong>线程安全</strong>：<code>_lock</code> 保护所有队列操作。Timer 是 daemon 线程，不会阻止进程退出。</p>
+<p><strong>处理互斥</strong>：<code>_processing</code> 标志防止并发处理。如果 timer 触发时已在处理中，会重新调度而不是跳过：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_process_queue</span>(self):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> self<span style="color:#f92672">.</span>_lock:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> self<span style="color:#f92672">.</span>_processing:
+</span></span><span style="display:flex;"><span>            self<span style="color:#f92672">.</span>_reset_timer()  <span style="color:#75715e"># 重新调度</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_processing <span style="color:#f92672">=</span> <span style="color:#66d9ef">True</span>
+</span></span><span style="display:flex;"><span>        contexts_to_process <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_queue<span style="color:#f92672">.</span>copy()
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_queue<span style="color:#f92672">.</span>clear()
+</span></span></code></pre></div><p><strong>批量间延迟</strong>：多个 thread 的更新之间有 0.5 秒间隔，避免 LLM API 限流。</p>
+<p><strong>全局单例</strong>：<code>get_memory_queue()</code> 返回进程级单例，通过 <code>_queue_lock</code> 保证线程安全的惰性初始化。</p>
+<h2 id="三记忆中间件from-agent-to-queue">三、记忆中间件——from Agent to Queue<a hidden class="anchor" aria-hidden="true" href="#三记忆中间件from-agent-to-queue">#</a></h2>
+<p><code>MemoryMiddleware</code>（<code>memory_middleware.py:86-149</code>）是连接 Agent 执行和记忆更新的桥梁，它挂载在 <code>after_agent</code> 钩子上。</p>
+<h3 id="31-消息过滤">3.1 消息过滤<a hidden class="anchor" aria-hidden="true" href="#31-消息过滤">#</a></h3>
+<p>不是所有消息都值得送进记忆系统。<code>_filter_messages_for_memory()</code>（<code>memory_middleware.py:20-83</code>）做了精细的过滤：</p>
+<p><strong>保留</strong>：</p>
+<ul>
+<li>Human messages（用户输入）</li>
+<li>AI messages without tool_calls（最终回复）</li>
+</ul>
+<p><strong>丢弃</strong>：</p>
+<ul>
+<li>Tool messages（中间工具调用结果）</li>
+<li>AI messages with tool_calls（中间推理步骤）</li>
+<li><code>&lt;uploaded_files&gt;</code> 标签（会话级别的文件路径）</li>
+</ul>
+<p>上传文件处理的逻辑特别细致。如果一个 human message 在去掉 <code>&lt;uploaded_files&gt;</code> 标签后还有文本，保留清洗后的版本；如果只剩空字符串（纯上传消息），连带其配对的 AI 回复一起跳过：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#e6db74">&#34;&lt;uploaded_files&gt;&#34;</span> <span style="color:#f92672">in</span> content_str:
+</span></span><span style="display:flex;"><span>    stripped <span style="color:#f92672">=</span> _UPLOAD_BLOCK_RE<span style="color:#f92672">.</span>sub(<span style="color:#e6db74">&#34;&#34;</span>, content_str)<span style="color:#f92672">.</span>strip()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> stripped:
+</span></span><span style="display:flex;"><span>        skip_next_ai <span style="color:#f92672">=</span> <span style="color:#66d9ef">True</span>  <span style="color:#75715e"># 跳过这个 turn 和配对的 AI 回复</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">continue</span>
+</span></span><span style="display:flex;"><span>    clean_msg <span style="color:#f92672">=</span> copy(msg)
+</span></span><span style="display:flex;"><span>    clean_msg<span style="color:#f92672">.</span>content <span style="color:#f92672">=</span> stripped
+</span></span><span style="display:flex;"><span>    filtered<span style="color:#f92672">.</span>append(clean_msg)
+</span></span></code></pre></div><h3 id="32-最小对话要求">3.2 最小对话要求<a hidden class="anchor" aria-hidden="true" href="#32-最小对话要求">#</a></h3>
+<p>中间件要求至少存在一个 human message 和一个 AI message 才会入队：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>user_messages <span style="color:#f92672">=</span> [m <span style="color:#66d9ef">for</span> m <span style="color:#f92672">in</span> filtered <span style="color:#66d9ef">if</span> getattr(m, <span style="color:#e6db74">&#34;type&#34;</span>, <span style="color:#66d9ef">None</span>) <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;human&#34;</span>]
+</span></span><span style="display:flex;"><span>assistant_messages <span style="color:#f92672">=</span> [m <span style="color:#66d9ef">for</span> m <span style="color:#f92672">in</span> filtered <span style="color:#66d9ef">if</span> getattr(m, <span style="color:#e6db74">&#34;type&#34;</span>, <span style="color:#66d9ef">None</span>) <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;ai&#34;</span>]
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> user_messages <span style="color:#f92672">or</span> <span style="color:#f92672">not</span> assistant_messages:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">None</span>
+</span></span></code></pre></div><p>这避免了对&quot;空对话&quot;或&quot;只有系统消息&quot;的场景触发无意义的记忆更新。</p>
+<h2 id="四记忆注入from-storage-to-prompt">四、记忆注入——from Storage to Prompt<a hidden class="anchor" aria-hidden="true" href="#四记忆注入from-storage-to-prompt">#</a></h2>
+<p>记忆的另一端是注入。<code>format_memory_for_injection()</code>（<code>prompt.py:186-294</code>）将存储的记忆数据格式化为系统提示词中的文本。</p>
+<h3 id="41-token-预算控制">4.1 Token 预算控制<a hidden class="anchor" aria-hidden="true" href="#41-token-预算控制">#</a></h3>
+<p>核心约束是 <code>max_tokens=2000</code>（可配置）。函数使用 tiktoken 进行精确的 token 计数，而不是粗略的字符数估算：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_count_tokens</span>(text: str, encoding_name: str <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;cl100k_base&#34;</span>) <span style="color:#f92672">-&gt;</span> int:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> TIKTOKEN_AVAILABLE:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> len(text) <span style="color:#f92672">//</span> <span style="color:#ae81ff">4</span>  <span style="color:#75715e"># fallback</span>
+</span></span><span style="display:flex;"><span>    encoding <span style="color:#f92672">=</span> tiktoken<span style="color:#f92672">.</span>get_encoding(encoding_name)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> len(encoding<span style="color:#f92672">.</span>encode(text))
+</span></span></code></pre></div><h3 id="42-增量-token-计算">4.2 增量 Token 计算<a hidden class="anchor" aria-hidden="true" href="#42-增量-token-计算">#</a></h3>
+<p>性能优化点：函数不是每添加一条 fact 就重新计算整个文本的 token 数，而是增量计算：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>base_tokens <span style="color:#f92672">=</span> _count_tokens(base_text) <span style="color:#66d9ef">if</span> base_text <span style="color:#66d9ef">else</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>running_tokens <span style="color:#f92672">=</span> base_tokens <span style="color:#f92672">+</span> separator_tokens
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> fact <span style="color:#f92672">in</span> ranked_facts:
+</span></span><span style="display:flex;"><span>    line_text <span style="color:#f92672">=</span> (<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span> <span style="color:#f92672">+</span> line) <span style="color:#66d9ef">if</span> fact_lines <span style="color:#66d9ef">else</span> line
+</span></span><span style="display:flex;"><span>    line_tokens <span style="color:#f92672">=</span> _count_tokens(line_text)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> running_tokens <span style="color:#f92672">+</span> line_tokens <span style="color:#f92672">&lt;=</span> max_tokens:
+</span></span><span style="display:flex;"><span>        fact_lines<span style="color:#f92672">.</span>append(line)
+</span></span><span style="display:flex;"><span>        running_tokens <span style="color:#f92672">+=</span> line_tokens
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>
+</span></span></code></pre></div><h3 id="43-按置信度排序截断">4.3 按置信度排序截断<a hidden class="anchor" aria-hidden="true" href="#43-按置信度排序截断">#</a></h3>
+<p>Facts 按 confidence 降序排列后逐条添加，直到 token 预算耗尽。这意味着低置信度的事实可能被截断，但高置信度的关键信息始终保留。<code>_coerce_confidence()</code> 还处理了 NaN、inf 等边界情况，防止非法值影响排序。</p>
+<h3 id="44-最终安全截断">4.4 最终安全截断<a hidden class="anchor" aria-hidden="true" href="#44-最终安全截断">#</a></h3>
+<p>即使增量计算通过了，函数最后仍做一次全文 token 检查。如果因浮点精度累积等原因超限，进行字符级截断并附加 <code>\n...</code> 标记。</p>
+<h2 id="五im-通道hub-and-spoke-消息总线">五、IM 通道——Hub-and-Spoke 消息总线<a hidden class="anchor" aria-hidden="true" href="#五im-通道hub-and-spoke-消息总线">#</a></h2>
+<h3 id="51-架构概览">5.1 架构概览<a hidden class="anchor" aria-hidden="true" href="#51-架构概览">#</a></h3>
+<p>DeerFlow 的 IM 通道采用经典的 Hub-and-Spoke（轮辐式）架构：</p>
+<div class="mermaid">
+  graph TB
+    subgraph Channels
+        F[Feishu<br>WebSocket]
+        S[Slack<br>Socket Mode]
+        T[Telegram<br>Long Polling]
+    end
+
+    subgraph MessageBus
+        IQ[Inbound Queue<br>asyncio.Queue]
+        OL[Outbound Listeners<br>Callback List]
+    end
+
+    subgraph Dispatcher
+        CM[ChannelManager<br>消费/路由/调度]
+    end
+
+    subgraph Backend
+        LG[LangGraph Server<br>Agent 执行]
+    end
+
+    F -->|InboundMessage| IQ
+    S -->|InboundMessage| IQ
+    T -->|InboundMessage| IQ
+
+    IQ -->|get_inbound()| CM
+    CM -->|runs.stream / runs.wait| LG
+    LG -->|结果| CM
+    CM -->|OutboundMessage| OL
+
+    OL -->|callback| F
+    OL -->|callback| S
+    OL -->|callback| T
+</div>
+<p>所有平台的消息都被标准化为 <code>InboundMessage</code>，通过 <code>asyncio.Queue</code> 传递给 Dispatcher；Dispatcher 处理完成后，将 <code>OutboundMessage</code> 通过回调列表分发给目标通道。</p>
+<h3 id="52-消息数据模型">5.2 消息数据模型<a hidden class="anchor" aria-hidden="true" href="#52-消息数据模型">#</a></h3>
+<p><code>message_bus.py</code> 定义了三个核心数据类：</p>
+<p><strong>InboundMessage</strong>（<code>message_bus.py:30-58</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#a6e22e">@dataclass</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">InboundMessage</span>:
+</span></span><span style="display:flex;"><span>    channel_name: str          <span style="color:#75715e"># &#34;feishu&#34; | &#34;slack&#34; | &#34;telegram&#34;</span>
+</span></span><span style="display:flex;"><span>    chat_id: str               <span style="color:#75715e"># 平台级别的会话 ID</span>
+</span></span><span style="display:flex;"><span>    user_id: str               <span style="color:#75715e"># 平台级别的用户 ID</span>
+</span></span><span style="display:flex;"><span>    text: str                  <span style="color:#75715e"># 消息文本</span>
+</span></span><span style="display:flex;"><span>    msg_type: InboundMessageType  <span style="color:#75715e"># CHAT | COMMAND</span>
+</span></span><span style="display:flex;"><span>    thread_ts: str <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span>      <span style="color:#75715e"># 平台线程标识（用于回复定位）</span>
+</span></span><span style="display:flex;"><span>    topic_id: str <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span>       <span style="color:#75715e"># 映射到 DeerFlow thread 的 key</span>
+</span></span><span style="display:flex;"><span>    files: list[dict]          <span style="color:#75715e"># 文件附件</span>
+</span></span><span style="display:flex;"><span>    metadata: dict             <span style="color:#75715e"># 平台特定的额外数据</span>
+</span></span><span style="display:flex;"><span>    created_at: float          <span style="color:#75715e"># Unix 时间戳</span>
+</span></span></code></pre></div><p><code>topic_id</code> 是一个关键设计。不同平台对&quot;同一个话题&quot;的表示方式不同——Feishu 用 <code>root_id</code>，Slack 用 <code>thread_ts</code>，Telegram 在私聊中没有线程概念。<code>topic_id</code> 将这些差异统一为一个字符串，用于映射到 DeerFlow 的 thread_id。</p>
+<p><strong>OutboundMessage</strong>（<code>message_bus.py:82-107</code>）：多了 <code>artifacts</code> 和 <code>attachments</code> 字段，支持将 Agent 产出的文件回传给用户。</p>
+<p><strong>ResolvedAttachment</strong>（<code>message_bus.py:62-79</code>）：将虚拟路径（如 <code>/mnt/user-data/outputs/report.pdf</code>）解析为宿主机实际路径，包含 MIME 类型、文件大小、是否为图片等元数据。</p>
+<h3 id="53-messagebus-实现">5.3 MessageBus 实现<a hidden class="anchor" aria-hidden="true" href="#53-messagebus-实现">#</a></h3>
+<p><code>MessageBus</code>（<code>message_bus.py:117-173</code>）出奇地简洁——不到 60 行代码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MessageBus</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">__init__</span>(self):
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_inbound_queue: asyncio<span style="color:#f92672">.</span>Queue[InboundMessage] <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>Queue()
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_outbound_listeners: list[OutboundCallback] <span style="color:#f92672">=</span> []
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">publish_inbound</span>(self, msg):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">await</span> self<span style="color:#f92672">.</span>_inbound_queue<span style="color:#f92672">.</span>put(msg)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_inbound</span>(self):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> self<span style="color:#f92672">.</span>_inbound_queue<span style="color:#f92672">.</span>get()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">subscribe_outbound</span>(self, callback):
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_outbound_listeners<span style="color:#f92672">.</span>append(callback)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">publish_outbound</span>(self, msg):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> callback <span style="color:#f92672">in</span> self<span style="color:#f92672">.</span>_outbound_listeners:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">await</span> callback(msg)
+</span></span></code></pre></div><p>入站用 Queue（多生产者单消费者），出站用回调列表（单生产者多消费者）。没有复杂的路由规则，因为出站路由在 <code>Channel._on_outbound()</code> 中通过 <code>channel_name</code> 过滤实现。</p>
+<h3 id="54-channel-基类">5.4 Channel 基类<a hidden class="anchor" aria-hidden="true" href="#54-channel-基类">#</a></h3>
+<p><code>Channel</code>（<code>base.py:14-108</code>）定义了所有通道的生命周期协议：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Channel</span>(ABC):
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@abstractmethod</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">start</span>(self) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>: <span style="color:#f92672">...</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@abstractmethod</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">stop</span>(self) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>: <span style="color:#f92672">...</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@abstractmethod</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">send</span>(self, msg: OutboundMessage) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>: <span style="color:#f92672">...</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">send_file</span>(self, msg, attachment) <span style="color:#f92672">-&gt;</span> bool:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">False</span>  <span style="color:#75715e"># 默认不支持文件上传</span>
+</span></span></code></pre></div><p><code>_on_outbound()</code> 回调（<code>base.py:87-108</code>）的路由逻辑有个细节：文本消息发送失败时，跳过后续的文件上传，避免&quot;有文件没正文&quot;的怪异体验：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_on_outbound</span>(self, msg):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> msg<span style="color:#f92672">.</span>channel_name <span style="color:#f92672">==</span> self<span style="color:#f92672">.</span>name:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">await</span> self<span style="color:#f92672">.</span>send(msg)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">Exception</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span>  <span style="color:#75715e"># 文本失败，跳过文件上传</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> attachment <span style="color:#f92672">in</span> msg<span style="color:#f92672">.</span>attachments:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">await</span> self<span style="color:#f92672">.</span>send_file(msg, attachment)
+</span></span></code></pre></div><h2 id="六三个平台的接入差异">六、三个平台的接入差异<a hidden class="anchor" aria-hidden="true" href="#六三个平台的接入差异">#</a></h2>
+<h3 id="61-feishu最复杂的实现">6.1 Feishu——最复杂的实现<a hidden class="anchor" aria-hidden="true" href="#61-feishu最复杂的实现">#</a></h3>
+<p><code>FeishuChannel</code>（<code>feishu.py:17-536</code>）是三个平台中实现最复杂的，536 行代码。</p>
+<p><strong>连接方式</strong>：WebSocket 长连接，通过 <code>lark-oapi</code> SDK。不需要公网 IP。</p>
+<p><strong>线程模型</strong>：SDK 在自己的线程中运行，需要一个独立的事件循环。由于 lark-oapi 在导入时缓存了模块级别的事件循环引用，而主线程已经在运行 uvloop，直接在主线程创建 WS 客户端会导致 <code>RuntimeError</code>。解决方案是在独立线程中创建新的事件循环，并替换 SDK 的模块级引用（<code>feishu.py:118-153</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_run_ws</span>(self, app_id, app_secret):
+</span></span><span style="display:flex;"><span>    loop <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>new_event_loop()
+</span></span><span style="display:flex;"><span>    asyncio<span style="color:#f92672">.</span>set_event_loop(loop)
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">import</span> lark_oapi.ws.client <span style="color:#66d9ef">as</span> _ws_client_mod
+</span></span><span style="display:flex;"><span>    _ws_client_mod<span style="color:#f92672">.</span>loop <span style="color:#f92672">=</span> loop  <span style="color:#75715e"># 替换 SDK 的模块级 loop</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># ... 创建并启动 WS 客户端</span>
+</span></span></code></pre></div><p><strong>渐进式卡片更新</strong>：Feishu 的杀手级特性是 Interactive Card 的原地更新。当 Agent 开始处理时，先创建一个&quot;Working on it&hellip;&ldquo;卡片，然后随着 Agent 流式输出不断 patch 同一张卡片：</p>
+<div class="mermaid">
+  sequenceDiagram
+    participant U as 用户
+    participant F as FeishuChannel
+    participant B as MessageBus
+    participant A as Agent
+
+    U->>F: 发送消息
+    F->>F: add_reaction("OK")
+    F->>F: _create_running_card("Working on it...")
+    F->>B: publish_inbound
+    B->>A: dispatch
+    A-->>B: 流式 chunk 1
+    B-->>F: OutboundMessage(is_final=false)
+    F->>F: _update_card(card_id, text_1)
+    A-->>B: 流式 chunk 2
+    B-->>F: OutboundMessage(is_final=false)
+    F->>F: _update_card(card_id, text_2)
+    A-->>B: 最终结果
+    B-->>F: OutboundMessage(is_final=true)
+    F->>F: _update_card(card_id, final_text)
+    F->>F: add_reaction("DONE")
+</div>
+<p>卡片 JSON 设置了 <code>&quot;update_multi&quot;: True</code>（<code>feishu.py:277</code>），这是 Feishu patch API 的必要配置。<code>_running_card_ids</code> 字典缓存了每个源消息对应的卡片 message_id，确保更新操作命中正确的卡片。</p>
+<p><strong>Emoji Reaction 状态指示</strong>：</p>
+<ul>
+<li>收到消息：添加 &ldquo;OK&rdquo; reaction</li>
+<li>处理完成：添加 &ldquo;DONE&rdquo; reaction</li>
+</ul>
+<p><strong>富文本解析</strong>（<code>feishu.py:468-494</code>）：支持两种消息格式——纯文本（<code>text</code> 字段）和富文本（<code>content</code> 列表）。富文本中的 <code>text</code> 和 <code>at</code> 标签会被提取拼接：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">for</span> element <span style="color:#f92672">in</span> paragraph:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> element<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;tag&#34;</span>) <span style="color:#f92672">in</span> (<span style="color:#e6db74">&#34;text&#34;</span>, <span style="color:#e6db74">&#34;at&#34;</span>):
+</span></span><span style="display:flex;"><span>        text_value <span style="color:#f92672">=</span> element<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;text&#34;</span>, <span style="color:#e6db74">&#34;&#34;</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> text_value:
+</span></span><span style="display:flex;"><span>            paragraph_text_parts<span style="color:#f92672">.</span>append(text_value)
+</span></span></code></pre></div><p><strong>文件上传限制</strong>（<code>feishu.py:201-234</code>）：图片 10MB，文件 30MB。上传时根据文件后缀判断类型（xls/ppt/pdf/doc/stream）。</p>
+<p><strong>Topic ID 映射</strong>：使用 <code>root_id</code>（回复的根消息 ID）作为 topic_id。新消息使用自己的 <code>msg_id</code>。这意味着 Feishu 话题中的所有回复共享同一个 DeerFlow thread。</p>
+<h3 id="62-slack简洁有效">6.2 Slack——简洁有效<a hidden class="anchor" aria-hidden="true" href="#62-slack简洁有效">#</a></h3>
+<p><code>SlackChannel</code>（<code>slack.py:19-244</code>）使用 Socket Mode，244 行。</p>
+<p><strong>连接方式</strong>：通过 <code>slack-sdk</code> 的 <code>SocketModeClient</code>，WebSocket 连接，不需要公网 IP。</p>
+<p><strong>Markdown 转换</strong>：Slack 使用自己的 mrkdwn 格式，不兼容标准 Markdown。通过 <code>markdown-to-mrkdwn</code> 库做自动转换：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> markdown_to_mrkdwn <span style="color:#f92672">import</span> SlackMarkdownConverter
+</span></span><span style="display:flex;"><span>_slack_md_converter <span style="color:#f92672">=</span> SlackMarkdownConverter()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">send</span>(self, msg):
+</span></span><span style="display:flex;"><span>    kwargs <span style="color:#f92672">=</span> {<span style="color:#e6db74">&#34;text&#34;</span>: _slack_md_converter<span style="color:#f92672">.</span>convert(msg<span style="color:#f92672">.</span>text)}
+</span></span></code></pre></div><p><strong>用户白名单</strong>：支持 <code>allowed_users</code> 配置，只允许指定用户与 Bot 交互：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> self<span style="color:#f92672">.</span>_allowed_users <span style="color:#f92672">and</span> user_id <span style="color:#f92672">not</span> <span style="color:#f92672">in</span> self<span style="color:#f92672">.</span>_allowed_users:
+</span></span><span style="display:flex;"><span>    logger<span style="color:#f92672">.</span>debug(<span style="color:#e6db74">&#34;Ignoring message from non-allowed user: </span><span style="color:#e6db74">%s</span><span style="color:#e6db74">&#34;</span>, user_id)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span>
+</span></span></code></pre></div><p><strong>状态 Emoji</strong>：</p>
+<ul>
+<li>收到消息：<code>eyes</code> reaction</li>
+<li>处理成功：<code>white_check_mark</code> reaction</li>
+<li>处理失败：<code>x</code> reaction</li>
+</ul>
+<p><strong>Topic ID 映射</strong>：直接使用 Slack 的 <code>thread_ts</code>。线程内的消息共享同一个 thread_ts（根消息的时间戳），非线程消息使用自己的 ts。</p>
+<h3 id="63-telegram独立事件循环">6.3 Telegram——独立事件循环<a hidden class="anchor" aria-hidden="true" href="#63-telegram独立事件循环">#</a></h3>
+<p><code>TelegramChannel</code>（<code>telegram.py:16-315</code>）使用长轮询，315 行。</p>
+<p><strong>连接方式</strong>：通过 <code>python-telegram-bot</code> 库的长轮询。独立线程 + 独立事件循环，原因与 Feishu 类似——SDK 的 <code>run_polling()</code> 会调用 <code>add_signal_handler()</code>，而这只能在主线程中使用。解决方案是手动初始化 application 并启动 updater（<code>telegram.py:199-222</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_run_polling</span>(self):
+</span></span><span style="display:flex;"><span>    self<span style="color:#f92672">.</span>_tg_loop <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>new_event_loop()
+</span></span><span style="display:flex;"><span>    asyncio<span style="color:#f92672">.</span>set_event_loop(self<span style="color:#f92672">.</span>_tg_loop)
+</span></span><span style="display:flex;"><span>    self<span style="color:#f92672">.</span>_tg_loop<span style="color:#f92672">.</span>run_until_complete(self<span style="color:#f92672">.</span>_application<span style="color:#f92672">.</span>initialize())
+</span></span><span style="display:flex;"><span>    self<span style="color:#f92672">.</span>_tg_loop<span style="color:#f92672">.</span>run_until_complete(self<span style="color:#f92672">.</span>_application<span style="color:#f92672">.</span>start())
+</span></span><span style="display:flex;"><span>    self<span style="color:#f92672">.</span>_tg_loop<span style="color:#f92672">.</span>run_until_complete(self<span style="color:#f92672">.</span>_application<span style="color:#f92672">.</span>updater<span style="color:#f92672">.</span>start_polling())
+</span></span><span style="display:flex;"><span>    self<span style="color:#f92672">.</span>_tg_loop<span style="color:#f92672">.</span>run_forever()
+</span></span></code></pre></div><p><strong>命令处理器</strong>：注册了 <code>/start</code>、<code>/new</code>、<code>/status</code>、<code>/models</code>、<code>/memory</code>、<code>/help</code> 六个命令。<code>/start</code> 本地处理，其余通过 <code>_cmd_generic</code> 转发到 ChannelManager。</p>
+<p><strong>私聊 vs 群聊的线程映射</strong>（<code>telegram.py:288-300</code>）：</p>
+<ul>
+<li><strong>私聊</strong>：<code>topic_id = None</code>，所有消息共享一个 DeerFlow thread（持续对话）</li>
+<li><strong>群聊</strong>：使用 reply-to 消息 ID 作为 topic_id，不同回复链是不同 thread</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> update<span style="color:#f92672">.</span>effective_chat<span style="color:#f92672">.</span>type <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;private&#34;</span>:
+</span></span><span style="display:flex;"><span>    topic_id <span style="color:#f92672">=</span> <span style="color:#66d9ef">None</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>    reply_to <span style="color:#f92672">=</span> update<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>reply_to_message
+</span></span><span style="display:flex;"><span>    topic_id <span style="color:#f92672">=</span> str(reply_to<span style="color:#f92672">.</span>message_id) <span style="color:#66d9ef">if</span> reply_to <span style="color:#66d9ef">else</span> msg_id
+</span></span></code></pre></div><p><strong>文件上传限制</strong>：图片 10MB（用 <code>send_photo</code>），文件 50MB（用 <code>send_document</code>）。超过 10MB 的图片降级为 document 上传。</p>
+<h3 id="64-三平台对比">6.4 三平台对比<a hidden class="anchor" aria-hidden="true" href="#64-三平台对比">#</a></h3>
+<table>
+  <thead>
+      <tr>
+          <th>特性</th>
+          <th>Feishu</th>
+          <th>Slack</th>
+          <th>Telegram</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>连接协议</td>
+          <td>WebSocket</td>
+          <td>Socket Mode (WS)</td>
+          <td>Long Polling</td>
+      </tr>
+      <tr>
+          <td>SDK</td>
+          <td>lark-oapi</td>
+          <td>slack-sdk</td>
+          <td>python-telegram-bot</td>
+      </tr>
+      <tr>
+          <td>线程模型</td>
+          <td>独立线程 + 独立 loop</td>
+          <td>主 loop + executor</td>
+          <td>独立线程 + 独立 loop</td>
+      </tr>
+      <tr>
+          <td>消息格式</td>
+          <td>Interactive Card (MD)</td>
+          <td>mrkdwn (转换)</td>
+          <td>纯文本</td>
+      </tr>
+      <tr>
+          <td>渐进更新</td>
+          <td>卡片原地 patch</td>
+          <td>不支持</td>
+          <td>不支持</td>
+      </tr>
+      <tr>
+          <td>处理方式</td>
+          <td>runs.stream()</td>
+          <td>runs.wait()</td>
+          <td>runs.wait()</td>
+      </tr>
+      <tr>
+          <td>接收状态</td>
+          <td>OK emoji</td>
+          <td>eyes emoji</td>
+          <td>-</td>
+      </tr>
+      <tr>
+          <td>完成状态</td>
+          <td>DONE emoji</td>
+          <td>check_mark emoji</td>
+          <td>-</td>
+      </tr>
+      <tr>
+          <td>失败状态</td>
+          <td>-</td>
+          <td>x emoji</td>
+          <td>-</td>
+      </tr>
+      <tr>
+          <td>文件限制</td>
+          <td>图片10MB/文件30MB</td>
+          <td>无显式限制</td>
+          <td>图片10MB/文件50MB</td>
+      </tr>
+      <tr>
+          <td>用户过滤</td>
+          <td>不支持</td>
+          <td>allowed_users</td>
+          <td>allowed_users</td>
+      </tr>
+      <tr>
+          <td>Topic 映射</td>
+          <td>root_id</td>
+          <td>thread_ts</td>
+          <td>reply_to / None</td>
+      </tr>
+      <tr>
+          <td>代码行数</td>
+          <td>536</td>
+          <td>244</td>
+          <td>315</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="65-跨线程通信模式">6.5 跨线程通信模式<a hidden class="anchor" aria-hidden="true" href="#65-跨线程通信模式">#</a></h3>
+<p>三个通道在跨线程通信上采用了相同的模式：</p>
+<ol>
+<li><strong>SDK 线程</strong>：接收平台消息，解析内容</li>
+<li><strong><code>asyncio.run_coroutine_threadsafe()</code></strong>：将协程投递到主事件循环</li>
+<li><strong>主事件循环</strong>：执行 <code>publish_inbound()</code>，触发 Dispatcher</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Feishu (feishu.py:529-532)</span>
+</span></span><span style="display:flex;"><span>fut <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>run_coroutine_threadsafe(
+</span></span><span style="display:flex;"><span>    self<span style="color:#f92672">.</span>_prepare_inbound(msg_id, inbound), self<span style="color:#f92672">.</span>_main_loop
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Telegram (telegram.py:311-313)</span>
+</span></span><span style="display:flex;"><span>fut <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>run_coroutine_threadsafe(
+</span></span><span style="display:flex;"><span>    self<span style="color:#f92672">.</span>_process_incoming_with_reply(chat_id, msg_id, inbound), self<span style="color:#f92672">.</span>_main_loop
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><p>每个 <code>fut</code> 都附加了 <code>add_done_callback</code> 来记录异常，避免跨线程异常被静默吞掉。</p>
+<h3 id="66-重试机制">6.6 重试机制<a hidden class="anchor" aria-hidden="true" href="#66-重试机制">#</a></h3>
+<p>三个通道的 <code>send()</code> 方法都实现了相同的指数退避重试（<code>_max_retries=3</code>，延迟 1s → 2s）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">for</span> attempt <span style="color:#f92672">in</span> range(_max_retries):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># ... 发送消息</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">Exception</span> <span style="color:#66d9ef">as</span> exc:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> attempt <span style="color:#f92672">&lt;</span> _max_retries <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span>:
+</span></span><span style="display:flex;"><span>            delay <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">**</span> attempt
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>sleep(delay)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">raise</span> last_exc
+</span></span></code></pre></div><h2 id="七记忆--通道--完整闭环">七、记忆 + 通道 = 完整闭环<a hidden class="anchor" aria-hidden="true" href="#七记忆--通道--完整闭环">#</a></h2>
+<p>将两个子系统放在一起看，就能理解它们如何形成闭环：</p>
+<div class="mermaid">
+  graph LR
+    subgraph "IM Channel (App层)"
+        C[Channel 接收消息]
+    end
+
+    subgraph "Agent Processing (Harness层)"
+        A[Lead Agent]
+        MM[MemoryMiddleware<br>after_agent]
+        MQ[MemoryUpdateQueue<br>30s 防抖]
+        MU[MemoryUpdater<br>LLM 提取]
+    end
+
+    subgraph "Memory Storage"
+        MF[memory.json]
+    end
+
+    subgraph "Prompt Injection"
+        PI[format_memory_for_injection<br>2000 token budget]
+    end
+
+    C -->|InboundMessage| A
+    A -->|对话完成| MM
+    MM -->|过滤后的消息| MQ
+    MQ -->|防抖后| MU
+    MU -->|LLM 调用| MF
+
+    MF -->|读取| PI
+    PI -->|注入系统提示词| A
+</div>
+<ol>
+<li>用户通过 Feishu/Slack/Telegram 发送消息</li>
+<li>Agent 处理请求，MemoryMiddleware 在 <code>after_agent</code> 阶段过滤对话</li>
+<li>过滤后的消息进入防抖队列，30 秒后 LLM 提取记忆</li>
+<li>记忆写入 memory.json</li>
+<li>下次任何通道的请求到来时，记忆被注入系统提示词</li>
+<li>Agent 带着对用户的&quot;了解&quot;处理新请求</li>
+</ol>
+<p>关键约束：</p>
+<ul>
+<li>记忆存储在 Harness 层（<code>deerflow.agents.memory</code>），跨平台共享</li>
+<li>通道在 App 层（<code>app.channels</code>），平台特定</li>
+<li>依赖方向始终是 App → Harness，记忆系统对通道的存在完全无感知</li>
+</ul>
+<h2 id="八值得思考的设计权衡">八、值得思考的设计权衡<a hidden class="anchor" aria-hidden="true" href="#八值得思考的设计权衡">#</a></h2>
+<p><strong>JSON 文件 vs 数据库</strong>：当前的 JSON 文件存储在多实例部署时会有并发写入问题。但对于单实例场景（个人使用、小团队），这是最简单、最可调试的方案。用户可以直接编辑 memory.json 来修正 Agent 的&quot;记忆&rdquo;。</p>
+<p><strong>LLM 提取 vs 规则提取</strong>：用 LLM 做记忆提取成本不低（每次对话结束后一次额外调用），但效果远超关键词匹配。LLM 能理解语义、归纳模式、判断重要性——这是规则引擎做不到的。</p>
+<p><strong>防抖窗口 30 秒</strong>：这个值是可配置的（<code>debounce_seconds</code>），但默认 30 秒意味着快速对话不会触发频繁更新，而正常使用节奏（一个问题讨论几分钟）中的每轮对话都会被及时记录。</p>
+<p><strong>Feishu 的渐进更新 vs Slack/Telegram 的一次性回复</strong>：这不是懒——而是因为 Feishu 的 Interactive Card 原生支持 patch 更新，而 Slack/Telegram 不支持（或支持但体验不好）。DeerFlow 根据平台能力选择了最佳策略。</p>
+<hr>
+<blockquote>
+<p><strong>下一篇预告</strong>：<a href="/posts/deerflow-07-harness-engineering">DeerFlow 源码解析（七）：Harness Engineering 工程实践</a>——作为收尾，我们将跳出具体子系统，审视 DeerFlow 项目的工程基础设施：CLAUDE.md 如何指导 AI Agent 协作、Harness/App 分层如何通过架构边界测试强制执行、CI/CD 管线的设计，以及对整个项目工程实践的综合评估。</p>
+</blockquote>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
+      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
+      <li><a href="http://localhost:1313/tags/deerflow/">DeerFlow</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ 
+        startOnLoad: true,
+        theme: 'default' 
+    });
+</script>
+
+
+<div style="
+    text-align: center;
+    font-size: 12px;
+    color: var(--secondary);
+    margin-top: 10px;
+    opacity: 0.8;">
+
+    
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+    
+    <span id="busuanzi_container_site_pv">
+        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
+    </span>
+    &nbsp;·&nbsp;
+    <span id="busuanzi_container_site_uv">
+        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
+    </span>
+</div>
+
+
+<script>
+(function() {
+    var el = document.getElementById('busuanzi_container_page_pv');
+    if (!el) return;
+    var check = setInterval(function() {
+        var val = document.getElementById('busuanzi_value_page_pv');
+        if (val && val.innerText !== '') {
+            el.style.display = 'inline';
+            clearInterval(check);
+        }
+    }, 200);
+    setTimeout(function() { clearInterval(check); }, 10000);
+})();
+</script>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

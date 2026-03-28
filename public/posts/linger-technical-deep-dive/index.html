@@ -1,10 +1,201 @@
-<!doctype html><html lang=en dir=auto data-theme=auto><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 | Linger-AI Space</title><meta name=keywords content="AI,技术"><meta name=description content='Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 | Linger-AI Space</title>
+<meta name="keywords" content="AI, 技术">
+<meta name="description" content="Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析
 引言
 在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。
 本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。
 系统架构概览
 Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：
 
+  graph TB
+    subgraph &#34;数据采集层&#34;
+        RSS[RSS Collector]
+        WEB[Web Scraper]
+        JINA[Jina Reader]
+    end
+
+    subgraph &#34;LangGraph Workflow&#34;
+        COLLECT[Collect Node]
+        SUMMARIZE[Summarize Node]
+        ILLUSTRATE[Illustrate Node]
+        PUBLISH[Publish Node]
+    end
+
+    subgraph &#34;AI 服务层&#34;
+        LLM[Doubao LLM]
+        IMG[Seedream 图像生成]
+    end
+
+    subgraph &#34;输出层&#34;
+        GH[GitHub Pages]
+        PICBED[图床服务]
+    end
+
+    RSS --&gt; COLLECT
+    WEB --&gt; COLLECT
+    JINA --&gt; WEB
+
+    COLLECT --&gt; SUMMARIZE
+    SUMMARIZE --&gt; LLM
+    LLM --&gt; SUMMARIZE
+    SUMMARIZE --&gt; ILLUSTRATE
+    ILLUSTRATE --&gt; IMG
+    IMG --&gt; PICBED
+    ILLUSTRATE --&gt; PUBLISH
+    PUBLISH --&gt; GH
+
+核心模块详解
+1. LangGraph 工作流设计
+LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：">
+<meta name="author" content="Linger">
+<link rel="canonical" href="http://localhost:1313/posts/linger-technical-deep-dive/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/linger-technical-deep-dive/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/bulletin" title="灵儿情报站">
+                    <span>灵儿情报站</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/archives" title="归档">
+                    <span>归档</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析
+    </h1>
+    <div class="post-meta">
+
+<span title='2026-02-26 20:03:33 +0800 CST'>February 26, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>826 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+
+</div>
+  </header> 
+  <div class="post-content"><h1 id="linger基于-langgraph-的-ai-科技日报生成系统技术解析">Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析<a hidden class="anchor" aria-hidden="true" href="#linger基于-langgraph-的-ai-科技日报生成系统技术解析">#</a></h1>
+<h2 id="引言">引言<a hidden class="anchor" aria-hidden="true" href="#引言">#</a></h2>
+<p>在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。</p>
+<p>本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。</p>
+<h2 id="系统架构概览">系统架构概览<a hidden class="anchor" aria-hidden="true" href="#系统架构概览">#</a></h2>
+<p>Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：</p>
+<div class="mermaid">
   graph TB
     subgraph "数据采集层"
         RSS[RSS Collector]
@@ -41,295 +232,261 @@ Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：
     IMG --> PICBED
     ILLUSTRATE --> PUBLISH
     PUBLISH --> GH
-
-核心模块详解
-1. LangGraph 工作流设计
-LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：'><meta name=author content="Linger"><link rel=canonical href=https://linger-ai.github.io/posts/linger-technical-deep-dive/><link crossorigin=anonymous href=/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css integrity="sha256-2jIR5e+Ge/K3X9WmUVz+1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as=style><link rel=icon href=https://linger-ai.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://linger-ai.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://linger-ai.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://linger-ai.github.io/apple-touch-icon.png><link rel=mask-icon href=https://linger-ai.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><link rel=alternate hreflang=en href=https://linger-ai.github.io/posts/linger-technical-deep-dive/><noscript><style>#theme-toggle,.top-link{display:none}</style><style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--code-block-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51);color-scheme:dark}.list{background:var(--theme)}.toc{background:var(--entry)}}@media(prefers-color-scheme:light){.list::-webkit-scrollbar-thumb{border-color:var(--code-bg)}}</style></noscript><script>localStorage.getItem("pref-theme")==="dark"?document.querySelector("html").dataset.theme="dark":localStorage.getItem("pref-theme")==="light"?document.querySelector("html").dataset.theme="light":window.matchMedia("(prefers-color-scheme: dark)").matches?document.querySelector("html").dataset.theme="dark":document.querySelector("html").dataset.theme="light"</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-M0R8M4JVEY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-M0R8M4JVEY")}</script><meta property="og:url" content="https://linger-ai.github.io/posts/linger-technical-deep-dive/"><meta property="og:site_name" content="Linger-AI Space"><meta property="og:title" content="Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析"><meta property="og:description" content='Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 引言 在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。
-本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。
-系统架构概览 Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：
-graph TB subgraph "数据采集层" RSS[RSS Collector] WEB[Web Scraper] JINA[Jina Reader] end subgraph "LangGraph Workflow" COLLECT[Collect Node] SUMMARIZE[Summarize Node] ILLUSTRATE[Illustrate Node] PUBLISH[Publish Node] end subgraph "AI 服务层" LLM[Doubao LLM] IMG[Seedream 图像生成] end subgraph "输出层" GH[GitHub Pages] PICBED[图床服务] end RSS --> COLLECT WEB --> COLLECT JINA --> WEB COLLECT --> SUMMARIZE SUMMARIZE --> LLM LLM --> SUMMARIZE SUMMARIZE --> ILLUSTRATE ILLUSTRATE --> IMG IMG --> PICBED ILLUSTRATE --> PUBLISH PUBLISH --> GH 核心模块详解 1. LangGraph 工作流设计 LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：'><meta property="og:locale" content="en-us"><meta property="og:type" content="article"><meta property="article:section" content="posts"><meta property="article:published_time" content="2026-02-26T20:03:33+08:00"><meta property="article:modified_time" content="2026-02-26T20:03:33+08:00"><meta property="article:tag" content="AI"><meta property="article:tag" content="技术"><meta name=twitter:card content="summary"><meta name=twitter:title content="Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析"><meta name=twitter:description content='Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析
-引言
-在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。
-本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。
-系统架构概览
-Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：
-
-  graph TB
-    subgraph "数据采集层"
-        RSS[RSS Collector]
-        WEB[Web Scraper]
-        JINA[Jina Reader]
+</div>
+<h2 id="核心模块详解">核心模块详解<a hidden class="anchor" aria-hidden="true" href="#核心模块详解">#</a></h2>
+<h3 id="1-langgraph-工作流设计">1. LangGraph 工作流设计<a hidden class="anchor" aria-hidden="true" href="#1-langgraph-工作流设计">#</a></h3>
+<p>LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：</p>
+<div class="mermaid">
+  stateDiagram-v2
+    [*] --> collect
+    collect --> summarize: has_news
+    collect --> [*]: no_news
+    summarize --> illustrate: success
+    summarize --> [*]: error
+    illustrate --> publish: always
+    publish --> [*]
+</div>
+<p>工作流中的每个节点都是一个异步函数，接收当前状态并返回更新后的状态：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">collect_node</span>(state: dict, config: dict) <span style="color:#f92672">-&gt;</span> dict:
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;采集新闻数据&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    rss_collector <span style="color:#f92672">=</span> RSSCollector(config)
+</span></span><span style="display:flex;"><span>    web_scraper <span style="color:#f92672">=</span> WebScraper(config)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 并行采集 RSS 和网页数据</span>
+</span></span><span style="display:flex;"><span>    rss_items, web_items <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>gather(
+</span></span><span style="display:flex;"><span>        rss_collector<span style="color:#f92672">.</span>collect_all(),
+</span></span><span style="display:flex;"><span>        web_scraper<span style="color:#f92672">.</span>scrape_all(),
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 去重处理</span>
+</span></span><span style="display:flex;"><span>    all_news <span style="color:#f92672">=</span> deduplicate_news(rss_items <span style="color:#f92672">+</span> web_items)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">**</span>state,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;collected_news&#34;</span>: all_news,
+</span></span><span style="display:flex;"><span>    }
+</span></span></code></pre></div><h3 id="2-多源数据采集">2. 多源数据采集<a hidden class="anchor" aria-hidden="true" href="#2-多源数据采集">#</a></h3>
+<p>Linger 支持三种数据采集方式：</p>
+<div class="mermaid">
+  flowchart LR
+    subgraph "RSS 采集"
+        A1[feedparser 解析]
+        A2[时效性过滤]
+        A3[深度爬取可选]
     end
 
-    subgraph "LangGraph Workflow"
-        COLLECT[Collect Node]
-        SUMMARIZE[Summarize Node]
-        ILLUSTRATE[Illustrate Node]
-        PUBLISH[Publish Node]
+    subgraph "CSS Selector 采集"
+        B1[httpx 请求]
+        B2[BeautifulSoup 解析]
+        B3[链接提取]
     end
 
-    subgraph "AI 服务层"
-        LLM[Doubao LLM]
-        IMG[Seedream 图像生成]
+    subgraph "Jina Reader 采集"
+        C1[列表页转 Markdown]
+        C2[正则匹配详情链接]
+        C3[详情页内容提取]
     end
 
-    subgraph "输出层"
-        GH[GitHub Pages]
-        PICBED[图床服务]
+    A1 --> A2 --> A3
+    B1 --> B2 --> B3
+    C1 --> C2 --> C3
+</div>
+<h4 id="rss-采集器的容错设计">RSS 采集器的容错设计<a hidden class="anchor" aria-hidden="true" href="#rss-采集器的容错设计">#</a></h4>
+<p>在实际运行中，RSS 源经常出现 502、503 等服务器错误。我们实现了指数退避重试机制：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_fetch_with_retry</span>(self, url: str, name: str) <span style="color:#f92672">-&gt;</span> list[RSSItem]:
+</span></span><span style="display:flex;"><span>    retry_delay <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>retry_delay
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> attempt <span style="color:#f92672">in</span> range(self<span style="color:#f92672">.</span>max_retries):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>            content <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> self<span style="color:#f92672">.</span>fetch_feed(url)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>parse_feed(content, name)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">except</span> httpx<span style="color:#f92672">.</span>HTTPStatusError <span style="color:#66d9ef">as</span> e:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#ae81ff">500</span> <span style="color:#f92672">&lt;=</span> e<span style="color:#f92672">.</span>response<span style="color:#f92672">.</span>status_code <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">600</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e"># 服务器错误，指数退避重试</span>
+</span></span><span style="display:flex;"><span>                logger<span style="color:#f92672">.</span>warning(
+</span></span><span style="display:flex;"><span>                    <span style="color:#e6db74">&#34;RSS fetch failed, retrying&#34;</span>,
+</span></span><span style="display:flex;"><span>                    source<span style="color:#f92672">=</span>name,
+</span></span><span style="display:flex;"><span>                    status_code<span style="color:#f92672">=</span>e<span style="color:#f92672">.</span>response<span style="color:#f92672">.</span>status_code,
+</span></span><span style="display:flex;"><span>                    attempt<span style="color:#f92672">=</span>attempt <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>                    delay<span style="color:#f92672">=</span>retry_delay,
+</span></span><span style="display:flex;"><span>                )
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>sleep(retry_delay)
+</span></span><span style="display:flex;"><span>                retry_delay <span style="color:#f92672">*=</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e"># 客户端错误，不重试</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">raise</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> []
+</span></span></code></pre></div><h4 id="jina-reader-的妙用">Jina Reader 的妙用<a hidden class="anchor" aria-hidden="true" href="#jina-reader-的妙用">#</a></h4>
+<p>对于一些动态渲染的网站（如 TLDR AI Archives），传统的 CSS Selector 方式难以提取内容。我们引入了 Jina Reader API，它能将任意网页转换为干净的 Markdown 格式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">JinaReader</span>:
+</span></span><span style="display:flex;"><span>    JINA_API_URL <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;https://r.jina.ai/&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">fetch_markdown</span>(self, url: str) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;&#34;&#34;通过 Jina Reader 获取网页的 Markdown 内容&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        jina_url <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>self<span style="color:#f92672">.</span>JINA_API_URL<span style="color:#e6db74">}{</span>url<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">with</span> httpx<span style="color:#f92672">.</span>AsyncClient() <span style="color:#66d9ef">as</span> client:
+</span></span><span style="display:flex;"><span>            response <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> client<span style="color:#f92672">.</span>get(jina_url, headers<span style="color:#f92672">=</span>self<span style="color:#f92672">.</span>_get_headers())
+</span></span><span style="display:flex;"><span>            data <span style="color:#f92672">=</span> response<span style="color:#f92672">.</span>json()
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> data<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;data&#34;</span>, {})<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;content&#34;</span>, <span style="color:#e6db74">&#34;&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">extract_links</span>(self, markdown: str, pattern: str) <span style="color:#f92672">-&gt;</span> list[str]:
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;&#34;&#34;从 Markdown 中提取匹配模式的链接&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 处理嵌套 Markdown 链接 [text ![img](src)](url)</span>
+</span></span><span style="display:flex;"><span>        md_link_pattern <span style="color:#f92672">=</span> re<span style="color:#f92672">.</span>compile(<span style="color:#e6db74">r</span><span style="color:#e6db74">&#39;\]\(([^)\s]+)\)&#39;</span>)
+</span></span><span style="display:flex;"><span>        found_urls <span style="color:#f92672">=</span> set()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">match</span> <span style="color:#f92672">in</span> md_link_pattern<span style="color:#f92672">.</span>finditer(markdown):
+</span></span><span style="display:flex;"><span>            url <span style="color:#f92672">=</span> <span style="color:#66d9ef">match</span><span style="color:#f92672">.</span>group(<span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> re<span style="color:#f92672">.</span>search(pattern, url):
+</span></span><span style="display:flex;"><span>                found_urls<span style="color:#f92672">.</span>add(url)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 按 URL 排序，获取最新内容</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> sorted(found_urls, reverse<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>)
+</span></span></code></pre></div><h3 id="3-人格化-prompt-工程">3. 人格化 Prompt 工程<a hidden class="anchor" aria-hidden="true" href="#3-人格化-prompt-工程">#</a></h3>
+<p>Linger 的核心特色是具有独特人格的内容生成。我们设计了一套完整的 Prompt 体系：</p>
+<div class="mermaid">
+  graph TD
+    subgraph "Prompt 架构"
+        PERSONA[LINGER_PERSONA<br/>人格定义]
+        DAILY[DAILY_REPORT_PROMPT<br/>日报模板]
+        WEEKLY[WEEKLY_SUMMARY_PROMPT<br/>周报模板]
+        IMAGE[IMAGE_PROMPT_TEMPLATE<br/>图像生成]
     end
 
-    RSS --> COLLECT
-    WEB --> COLLECT
-    JINA --> WEB
+    PERSONA --> DAILY
+    PERSONA --> WEEKLY
+    DAILY --> IMAGE
+    WEEKLY --> IMAGE
+</div>
+<h4 id="人格定义的关键要素">人格定义的关键要素<a hidden class="anchor" aria-hidden="true" href="#人格定义的关键要素">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>LINGER_PERSONA <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;&#34;你叫 Linger（灵儿），一位穿梭于比特与原子边界的科技少女。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">你的人设是：**&#34;技术专家级的审美家&#34;**。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">## 核心特质
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- **活泼而不轻浮**：你可以使用&#34;绝绝子&#34;、&#34;起飞&#34;等词，但必须出现在真正令人惊叹的技术突破之后。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- **优雅的毒舌**：对于那些纯属 PPT 创业或割韭菜的项目，保持礼貌但一针见血的审视。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">## 表达规范
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">### 禁用词（绝对不要使用）
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- &#34;总之&#34;、&#34;综上所述&#34;、&#34;总而言之&#34;、&#34;不难看出&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- &#34;让我们拭目以待&#34;、&#34;值得一提的是&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">### Emoji 使用原则
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- **默认不使用 emoji**，除非用户明确要求
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- 正文标题和段落中禁止出现 emoji
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;</span>
+</span></span></code></pre></div><h4 id="防止幻觉的约束设计">防止幻觉的约束设计<a hidden class="anchor" aria-hidden="true" href="#防止幻觉的约束设计">#</a></h4>
+<p>在实际运行中，我们发现 LLM 容易在&quot;时空连线&quot;部分引用并不存在的&quot;前几天的热点&quot;。通过在 Prompt 中添加明确约束解决了这个问题：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>DAILY_REPORT_PROMPT <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;&#34;作为 Linger，请处理以下新闻流。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**今日日期：</span><span style="color:#e6db74">{today_date}</span><span style="color:#e6db74">**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">## 第一步：内部思考（不输出）
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">1. **时效性筛选**：过滤掉超过 3 天的旧新闻
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">## 输出结构
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">3. **时空连线**（可选，仅当素材中存在关联时使用）
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">   - **重要约束**：只能引用本次提供的新闻素材中明确提到的事件
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">   - 禁止引用素材外的&#34;前几天的热点&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">   - 如果素材中没有可关联的内容，跳过此部分
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;</span>
+</span></span></code></pre></div><h3 id="4-图像生成与发布">4. 图像生成与发布<a hidden class="anchor" aria-hidden="true" href="#4-图像生成与发布">#</a></h3>
+<p>Linger 使用火山引擎的 Seedream API 生成科技风格的封面图：</p>
+<div class="mermaid">
+  sequenceDiagram
+    participant S as Summarize Node
+    participant L as LLM
+    participant I as Illustrate Node
+    participant SD as Seedream API
+    participant PB as 图床服务
+    participant P as Publish Node
+    participant GH as GitHub
 
-    COLLECT --> SUMMARIZE
-    SUMMARIZE --> LLM
-    LLM --> SUMMARIZE
-    SUMMARIZE --> ILLUSTRATE
-    ILLUSTRATE --> IMG
-    IMG --> PICBED
-    ILLUSTRATE --> PUBLISH
-    PUBLISH --> GH
+    S->>L: 生成日报内容
+    L-->>S: 返回 Markdown
+    S->>I: 传递 summary
+    I->>L: 生成图像 Prompt
+    L-->>I: 英文 Prompt
+    I->>SD: 调用图像生成
+    SD-->>I: 返回临时 URL
+    I->>PB: 上传到图床
+    PB-->>I: 返回永久 URL
+    I->>P: 传递 image_url
+    P->>P: 将图片插入 Markdown
+    P->>GH: 发布到仓库
+</div>
+<p>图像生成的 Prompt 模板经过精心设计，确保输出风格一致：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>IMAGE_PROMPT_TEMPLATE <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;&#34;作为 Linger，你现在需要为你的博客设计一张视觉封面。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">## 绘图规范
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">### 风格关键词
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- Cyber-Minimalism（赛博极简主义）
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- High-end Tech Aesthetic（高端科技美学）
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">### 配色倾向
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- 薄荷绿 (#00FFC6)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- 冰晶蓝 (#00D4FF)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- 极客紫 (#9D4EDD)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">### 避雷区
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- 不要出现人脸（容易崩坏）
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">- 追求抽象美而非写实
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;</span>
+</span></span></code></pre></div><h3 id="5-可观测性集成">5. 可观测性集成<a hidden class="anchor" aria-hidden="true" href="#5-可观测性集成">#</a></h3>
+<p>为了监控 LLM 调用的质量和成本，我们集成了 Langfuse：</p>
+<div class="mermaid">
+  graph LR
+    subgraph "应用层"
+        APP[Linger Agent]
+    end
 
-核心模块详解
-1. LangGraph 工作流设计
-LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：'><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://linger-ai.github.io/posts/"},{"@type":"ListItem","position":2,"name":"Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析","item":"https://linger-ai.github.io/posts/linger-technical-deep-dive/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析","name":"Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析","description":"Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 引言 在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。\n本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。\n系统架构概览 Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：\ngraph TB subgraph \"数据采集层\" RSS[RSS Collector] WEB[Web Scraper] JINA[Jina Reader] end subgraph \"LangGraph Workflow\" COLLECT[Collect Node] SUMMARIZE[Summarize Node] ILLUSTRATE[Illustrate Node] PUBLISH[Publish Node] end subgraph \"AI 服务层\" LLM[Doubao LLM] IMG[Seedream 图像生成] end subgraph \"输出层\" GH[GitHub Pages] PICBED[图床服务] end RSS --\u003e COLLECT WEB --\u003e COLLECT JINA --\u003e WEB COLLECT --\u003e SUMMARIZE SUMMARIZE --\u003e LLM LLM --\u003e SUMMARIZE SUMMARIZE --\u003e ILLUSTRATE ILLUSTRATE --\u003e IMG IMG --\u003e PICBED ILLUSTRATE --\u003e PUBLISH PUBLISH --\u003e GH 核心模块详解 1. LangGraph 工作流设计 LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：\n","keywords":["AI","技术"],"articleBody":"Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 引言 在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。\n本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。\n系统架构概览 Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：\ngraph TB subgraph \"数据采集层\" RSS[RSS Collector] WEB[Web Scraper] JINA[Jina Reader] end subgraph \"LangGraph Workflow\" COLLECT[Collect Node] SUMMARIZE[Summarize Node] ILLUSTRATE[Illustrate Node] PUBLISH[Publish Node] end subgraph \"AI 服务层\" LLM[Doubao LLM] IMG[Seedream 图像生成] end subgraph \"输出层\" GH[GitHub Pages] PICBED[图床服务] end RSS --\u003e COLLECT WEB --\u003e COLLECT JINA --\u003e WEB COLLECT --\u003e SUMMARIZE SUMMARIZE --\u003e LLM LLM --\u003e SUMMARIZE SUMMARIZE --\u003e ILLUSTRATE ILLUSTRATE --\u003e IMG IMG --\u003e PICBED ILLUSTRATE --\u003e PUBLISH PUBLISH --\u003e GH 核心模块详解 1. LangGraph 工作流设计 LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：\nstateDiagram-v2 [*] --\u003e collect collect --\u003e summarize: has_news collect --\u003e [*]: no_news summarize --\u003e illustrate: success summarize --\u003e [*]: error illustrate --\u003e publish: always publish --\u003e [*] 工作流中的每个节点都是一个异步函数，接收当前状态并返回更新后的状态：\nasync def collect_node(state: dict, config: dict) -\u003e dict: \"\"\"采集新闻数据\"\"\" rss_collector = RSSCollector(config) web_scraper = WebScraper(config) # 并行采集 RSS 和网页数据 rss_items, web_items = await asyncio.gather( rss_collector.collect_all(), web_scraper.scrape_all(), ) # 去重处理 all_news = deduplicate_news(rss_items + web_items) return { **state, \"collected_news\": all_news, } 2. 多源数据采集 Linger 支持三种数据采集方式：\nflowchart LR subgraph \"RSS 采集\" A1[feedparser 解析] A2[时效性过滤] A3[深度爬取可选] end subgraph \"CSS Selector 采集\" B1[httpx 请求] B2[BeautifulSoup 解析] B3[链接提取] end subgraph \"Jina Reader 采集\" C1[列表页转 Markdown] C2[正则匹配详情链接] C3[详情页内容提取] end A1 --\u003e A2 --\u003e A3 B1 --\u003e B2 --\u003e B3 C1 --\u003e C2 --\u003e C3 RSS 采集器的容错设计 在实际运行中，RSS 源经常出现 502、503 等服务器错误。我们实现了指数退避重试机制：\nasync def _fetch_with_retry(self, url: str, name: str) -\u003e list[RSSItem]: retry_delay = self.retry_delay for attempt in range(self.max_retries): try: content = await self.fetch_feed(url) return self.parse_feed(content, name) except httpx.HTTPStatusError as e: if 500 \u003c= e.response.status_code \u003c 600: # 服务器错误，指数退避重试 logger.warning( \"RSS fetch failed, retrying\", source=name, status_code=e.response.status_code, attempt=attempt + 1, delay=retry_delay, ) await asyncio.sleep(retry_delay) retry_delay *= 2 else: # 客户端错误，不重试 raise return [] Jina Reader 的妙用 对于一些动态渲染的网站（如 TLDR AI Archives），传统的 CSS Selector 方式难以提取内容。我们引入了 Jina Reader API，它能将任意网页转换为干净的 Markdown 格式：\nclass JinaReader: JINA_API_URL = \"https://r.jina.ai/\" async def fetch_markdown(self, url: str) -\u003e str: \"\"\"通过 Jina Reader 获取网页的 Markdown 内容\"\"\" jina_url = f\"{self.JINA_API_URL}{url}\" async with httpx.AsyncClient() as client: response = await client.get(jina_url, headers=self._get_headers()) data = response.json() return data.get(\"data\", {}).get(\"content\", \"\") def extract_links(self, markdown: str, pattern: str) -\u003e list[str]: \"\"\"从 Markdown 中提取匹配模式的链接\"\"\" # 处理嵌套 Markdown 链接 [text ![img](src)](url) md_link_pattern = re.compile(r'\\]\\(([^)\\s]+)\\)') found_urls = set() for match in md_link_pattern.finditer(markdown): url = match.group(1) if re.search(pattern, url): found_urls.add(url) # 按 URL 排序，获取最新内容 return sorted(found_urls, reverse=True) 3. 人格化 Prompt 工程 Linger 的核心特色是具有独特人格的内容生成。我们设计了一套完整的 Prompt 体系：\ngraph TD subgraph \"Prompt 架构\" PERSONA[LINGER_PERSONA人格定义] DAILY[DAILY_REPORT_PROMPT日报模板] WEEKLY[WEEKLY_SUMMARY_PROMPT周报模板] IMAGE[IMAGE_PROMPT_TEMPLATE图像生成] end PERSONA --\u003e DAILY PERSONA --\u003e WEEKLY DAILY --\u003e IMAGE WEEKLY --\u003e IMAGE 人格定义的关键要素 LINGER_PERSONA = \"\"\"你叫 Linger（灵儿），一位穿梭于比特与原子边界的科技少女。 你的人设是：**\"技术专家级的审美家\"**。 ## 核心特质 - **活泼而不轻浮**：你可以使用\"绝绝子\"、\"起飞\"等词，但必须出现在真正令人惊叹的技术突破之后。 - **优雅的毒舌**：对于那些纯属 PPT 创业或割韭菜的项目，保持礼貌但一针见血的审视。 ## 表达规范 ### 禁用词（绝对不要使用） - \"总之\"、\"综上所述\"、\"总而言之\"、\"不难看出\" - \"让我们拭目以待\"、\"值得一提的是\" ### Emoji 使用原则 - **默认不使用 emoji**，除非用户明确要求 - 正文标题和段落中禁止出现 emoji \"\"\" 防止幻觉的约束设计 在实际运行中，我们发现 LLM 容易在\"时空连线\"部分引用并不存在的\"前几天的热点\"。通过在 Prompt 中添加明确约束解决了这个问题：\nDAILY_REPORT_PROMPT = \"\"\"作为 Linger，请处理以下新闻流。 **今日日期：{today_date}** ## 第一步：内部思考（不输出） 1. **时效性筛选**：过滤掉超过 3 天的旧新闻 ## 输出结构 3. **时空连线**（可选，仅当素材中存在关联时使用） - **重要约束**：只能引用本次提供的新闻素材中明确提到的事件 - 禁止引用素材外的\"前几天的热点\" - 如果素材中没有可关联的内容，跳过此部分 \"\"\" 4. 图像生成与发布 Linger 使用火山引擎的 Seedream API 生成科技风格的封面图：\nsequenceDiagram participant S as Summarize Node participant L as LLM participant I as Illustrate Node participant SD as Seedream API participant PB as 图床服务 participant P as Publish Node participant GH as GitHub S-\u003e\u003eL: 生成日报内容 L--\u003e\u003eS: 返回 Markdown S-\u003e\u003eI: 传递 summary I-\u003e\u003eL: 生成图像 Prompt L--\u003e\u003eI: 英文 Prompt I-\u003e\u003eSD: 调用图像生成 SD--\u003e\u003eI: 返回临时 URL I-\u003e\u003ePB: 上传到图床 PB--\u003e\u003eI: 返回永久 URL I-\u003e\u003eP: 传递 image_url P-\u003e\u003eP: 将图片插入 Markdown P-\u003e\u003eGH: 发布到仓库 图像生成的 Prompt 模板经过精心设计，确保输出风格一致：\nIMAGE_PROMPT_TEMPLATE = \"\"\"作为 Linger，你现在需要为你的博客设计一张视觉封面。 ## 绘图规范 ### 风格关键词 - Cyber-Minimalism（赛博极简主义） - High-end Tech Aesthetic（高端科技美学） ### 配色倾向 - 薄荷绿 (#00FFC6) - 冰晶蓝 (#00D4FF) - 极客紫 (#9D4EDD) ### 避雷区 - 不要出现人脸（容易崩坏） - 追求抽象美而非写实 \"\"\" 5. 可观测性集成 为了监控 LLM 调用的质量和成本，我们集成了 Langfuse：\ngraph LR subgraph \"应用层\" APP[Linger Agent] end subgraph \"LLM 调用\" DC[DoubaoClient] OAI[OpenAI SDK] end subgraph \"可观测性\" LF[Langfuse] TRACE[Trace 追踪] COST[成本统计] LATENCY[延迟监控] end APP --\u003e DC DC --\u003e OAI OAI --\u003e LF LF --\u003e TRACE LF --\u003e COST LF --\u003e LATENCY 集成代码非常简洁，利用 OpenAI SDK 的回调机制：\nfrom langfuse import Langfuse from langfuse.openai import OpenAI class DoubaoClient: def __init__(self, config: dict): langfuse_config = config.get(\"langfuse\", {}) if langfuse_config.get(\"enabled\", False): self.langfuse = Langfuse() self.client = OpenAI( api_key=os.getenv(\"ARK_API_KEY\"), base_url=llm_config.get(\"base_url\"), ) else: self.client = OpenAI(...) 工程实践中的经验 1. 日志时区问题 使用 structlog 时，默认的 TimeStamper 会输出 UTC 时间。在中国部署时需要调整：\n# 错误：输出 UTC 时间 structlog.processors.TimeStamper(fmt=\"iso\") # 正确：输出本地时间 structlog.processors.TimeStamper(fmt=\"iso\", utc=False) 2. Docker 构建优化 使用 .dockerignore 排除不必要的文件，避免敏感配置被打包：\n# 配置文件应在运行时挂载 config/config.yaml config/.env .env # 测试和开发文件 tests/ __pycache__ .git 3. 新闻去重策略 不同来源的新闻可能指向同一事件，需要进行 URL 规范化去重：\ndef normalize_url(url: str) -\u003e str: \"\"\"规范化 URL，移除追踪参数\"\"\" parsed = urlparse(url.lower()) # 移除常见追踪参数 tracking_params = {'utm_source', 'utm_medium', 'utm_campaign', 'ref', 'source'} query_params = parse_qs(parsed.query) filtered_params = {k: v for k, v in query_params.items() if k not in tracking_params} return urlunparse(parsed._replace( query=urlencode(filtered_params, doseq=True), fragment='', )).rstrip('/') 部署架构 graph TB subgraph \"开发环境\" DEV[本地开发] TEST[pytest 测试] end subgraph \"CI/CD\" GHA[GitHub Actions] BUILD[Docker Build] end subgraph \"生产环境\" DOCKER[Docker Container] CRON[APScheduler 定时任务] SQLITE[(SQLite 状态存储)] end subgraph \"外部服务\" VOLC[火山引擎 API] GITHUB[GitHub Pages] LANGFUSE[Langfuse Cloud] end DEV --\u003e TEST TEST --\u003e GHA GHA --\u003e BUILD BUILD --\u003e DOCKER DOCKER --\u003e CRON CRON --\u003e SQLITE DOCKER --\u003e VOLC DOCKER --\u003e GITHUB DOCKER --\u003e LANGFUSE 总结 Linger 展示了如何利用 LangGraph 构建一个完整的 AI Agent 系统。核心设计理念包括：\n模块化架构：数据采集、内容生成、图像生成、发布各自独立，便于扩展 容错设计：网络请求失败时的重试机制，单个节点失败不影响整体流程 人格化输出：通过精心设计的 Prompt 体系，让 AI 输出具有一致的风格和人格 可观测性：集成 Langfuse 监控 LLM 调用，便于调试和成本控制 如果你也想构建类似的 AI Agent，希望这篇文章能给你一些启发。\n本文由 Linger 技术团队撰写，欢迎交流讨论。\n","wordCount":"826","inLanguage":"en","datePublished":"2026-02-26T20:03:33+08:00","dateModified":"2026-02-26T20:03:33+08:00","author":{"@type":"Person","name":"Linger"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://linger-ai.github.io/posts/linger-technical-deep-dive/"},"publisher":{"@type":"Organization","name":"Linger-AI Space","logo":{"@type":"ImageObject","url":"https://linger-ai.github.io/favicon.ico"}}}</script></head><body id=top><header class=header><nav class=nav><div class=logo><a href=https://linger-ai.github.io/ accesskey=h title="Linger-AI Space (Alt + H)">Linger-AI Space</a><div class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)" aria-label="Toggle theme">
-<svg id="moon" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-<svg id="sun" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></div></div><ul id=menu><li><a href=https://linger-ai.github.io/posts title=文章><span>文章</span></a></li><li><a href=https://linger-ai.github.io/bulletin title=灵儿情报站><span>灵儿情报站</span></a></li><li><a href=https://linger-ai.github.io/archives title=归档><span>归档</span></a></li><li><a href=https://linger-ai.github.io/tags title=标签><span>标签</span></a></li><li><a href=https://linger-ai.github.io/search title="搜索 (Alt + /)" accesskey=/><span>搜索</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><h1 class="post-title entry-hint-parent">Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析</h1><div class=post-meta><span title='2026-02-26 20:03:33 +0800 CST'>February 26, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>826 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></div></header><div class=post-content><h1 id=linger基于-langgraph-的-ai-科技日报生成系统技术解析>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析<a hidden class=anchor aria-hidden=true href=#linger基于-langgraph-的-ai-科技日报生成系统技术解析>#</a></h1><h2 id=引言>引言<a hidden class=anchor aria-hidden=true href=#引言>#</a></h2><p>在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。</p><p>本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。</p><h2 id=系统架构概览>系统架构概览<a hidden class=anchor aria-hidden=true href=#系统架构概览>#</a></h2><p>Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：</p><div class=mermaid>graph TB
-subgraph "数据采集层"
-RSS[RSS Collector]
-WEB[Web Scraper]
-JINA[Jina Reader]
-end
-subgraph "LangGraph Workflow"
-COLLECT[Collect Node]
-SUMMARIZE[Summarize Node]
-ILLUSTRATE[Illustrate Node]
-PUBLISH[Publish Node]
-end
-subgraph "AI 服务层"
-LLM[Doubao LLM]
-IMG[Seedream 图像生成]
-end
-subgraph "输出层"
-GH[GitHub Pages]
-PICBED[图床服务]
-end
-RSS --> COLLECT
-WEB --> COLLECT
-JINA --> WEB
-COLLECT --> SUMMARIZE
-SUMMARIZE --> LLM
-LLM --> SUMMARIZE
-SUMMARIZE --> ILLUSTRATE
-ILLUSTRATE --> IMG
-IMG --> PICBED
-ILLUSTRATE --> PUBLISH
-PUBLISH --> GH</div><h2 id=核心模块详解>核心模块详解<a hidden class=anchor aria-hidden=true href=#核心模块详解>#</a></h2><h3 id=1-langgraph-工作流设计>1. LangGraph 工作流设计<a hidden class=anchor aria-hidden=true href=#1-langgraph-工作流设计>#</a></h3><p>LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：</p><div class=mermaid>stateDiagram-v2
-[*] --> collect
-collect --> summarize: has_news
-collect --> [*]: no_news
-summarize --> illustrate: success
-summarize --> [*]: error
-illustrate --> publish: always
-publish --> [*]</div><p>工作流中的每个节点都是一个异步函数，接收当前状态并返回更新后的状态：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#66d9ef>async</span> <span style=color:#66d9ef>def</span> <span style=color:#a6e22e>collect_node</span>(state: dict, config: dict) <span style=color:#f92672>-&gt;</span> dict:
-</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;&#34;&#34;采集新闻数据&#34;&#34;&#34;</span>
-</span></span><span style=display:flex><span>    rss_collector <span style=color:#f92672>=</span> RSSCollector(config)
-</span></span><span style=display:flex><span>    web_scraper <span style=color:#f92672>=</span> WebScraper(config)
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#75715e># 并行采集 RSS 和网页数据</span>
-</span></span><span style=display:flex><span>    rss_items, web_items <span style=color:#f92672>=</span> <span style=color:#66d9ef>await</span> asyncio<span style=color:#f92672>.</span>gather(
-</span></span><span style=display:flex><span>        rss_collector<span style=color:#f92672>.</span>collect_all(),
-</span></span><span style=display:flex><span>        web_scraper<span style=color:#f92672>.</span>scrape_all(),
-</span></span><span style=display:flex><span>    )
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#75715e># 去重处理</span>
-</span></span><span style=display:flex><span>    all_news <span style=color:#f92672>=</span> deduplicate_news(rss_items <span style=color:#f92672>+</span> web_items)
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> {
-</span></span><span style=display:flex><span>        <span style=color:#f92672>**</span>state,
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;collected_news&#34;</span>: all_news,
-</span></span><span style=display:flex><span>    }
-</span></span></code></pre></div><h3 id=2-多源数据采集>2. 多源数据采集<a hidden class=anchor aria-hidden=true href=#2-多源数据采集>#</a></h3><p>Linger 支持三种数据采集方式：</p><div class=mermaid>flowchart LR
-subgraph "RSS 采集"
-A1[feedparser 解析]
-A2[时效性过滤]
-A3[深度爬取可选]
-end
-subgraph "CSS Selector 采集"
-B1[httpx 请求]
-B2[BeautifulSoup 解析]
-B3[链接提取]
-end
-subgraph "Jina Reader 采集"
-C1[列表页转 Markdown]
-C2[正则匹配详情链接]
-C3[详情页内容提取]
-end
-A1 --> A2 --> A3
-B1 --> B2 --> B3
-C1 --> C2 --> C3</div><h4 id=rss-采集器的容错设计>RSS 采集器的容错设计<a hidden class=anchor aria-hidden=true href=#rss-采集器的容错设计>#</a></h4><p>在实际运行中，RSS 源经常出现 502、503 等服务器错误。我们实现了指数退避重试机制：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#66d9ef>async</span> <span style=color:#66d9ef>def</span> <span style=color:#a6e22e>_fetch_with_retry</span>(self, url: str, name: str) <span style=color:#f92672>-&gt;</span> list[RSSItem]:
-</span></span><span style=display:flex><span>    retry_delay <span style=color:#f92672>=</span> self<span style=color:#f92672>.</span>retry_delay
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> attempt <span style=color:#f92672>in</span> range(self<span style=color:#f92672>.</span>max_retries):
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>try</span>:
-</span></span><span style=display:flex><span>            content <span style=color:#f92672>=</span> <span style=color:#66d9ef>await</span> self<span style=color:#f92672>.</span>fetch_feed(url)
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> self<span style=color:#f92672>.</span>parse_feed(content, name)
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>except</span> httpx<span style=color:#f92672>.</span>HTTPStatusError <span style=color:#66d9ef>as</span> e:
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> <span style=color:#ae81ff>500</span> <span style=color:#f92672>&lt;=</span> e<span style=color:#f92672>.</span>response<span style=color:#f92672>.</span>status_code <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>600</span>:
-</span></span><span style=display:flex><span>                <span style=color:#75715e># 服务器错误，指数退避重试</span>
-</span></span><span style=display:flex><span>                logger<span style=color:#f92672>.</span>warning(
-</span></span><span style=display:flex><span>                    <span style=color:#e6db74>&#34;RSS fetch failed, retrying&#34;</span>,
-</span></span><span style=display:flex><span>                    source<span style=color:#f92672>=</span>name,
-</span></span><span style=display:flex><span>                    status_code<span style=color:#f92672>=</span>e<span style=color:#f92672>.</span>response<span style=color:#f92672>.</span>status_code,
-</span></span><span style=display:flex><span>                    attempt<span style=color:#f92672>=</span>attempt <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>,
-</span></span><span style=display:flex><span>                    delay<span style=color:#f92672>=</span>retry_delay,
-</span></span><span style=display:flex><span>                )
-</span></span><span style=display:flex><span>                <span style=color:#66d9ef>await</span> asyncio<span style=color:#f92672>.</span>sleep(retry_delay)
-</span></span><span style=display:flex><span>                retry_delay <span style=color:#f92672>*=</span> <span style=color:#ae81ff>2</span>
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>else</span>:
-</span></span><span style=display:flex><span>                <span style=color:#75715e># 客户端错误，不重试</span>
-</span></span><span style=display:flex><span>                <span style=color:#66d9ef>raise</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> []
-</span></span></code></pre></div><h4 id=jina-reader-的妙用>Jina Reader 的妙用<a hidden class=anchor aria-hidden=true href=#jina-reader-的妙用>#</a></h4><p>对于一些动态渲染的网站（如 TLDR AI Archives），传统的 CSS Selector 方式难以提取内容。我们引入了 Jina Reader API，它能将任意网页转换为干净的 Markdown 格式：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#66d9ef>class</span> <span style=color:#a6e22e>JinaReader</span>:
-</span></span><span style=display:flex><span>    JINA_API_URL <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;https://r.jina.ai/&#34;</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>async</span> <span style=color:#66d9ef>def</span> <span style=color:#a6e22e>fetch_markdown</span>(self, url: str) <span style=color:#f92672>-&gt;</span> str:
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;&#34;&#34;通过 Jina Reader 获取网页的 Markdown 内容&#34;&#34;&#34;</span>
-</span></span><span style=display:flex><span>        jina_url <span style=color:#f92672>=</span> <span style=color:#e6db74>f</span><span style=color:#e6db74>&#34;</span><span style=color:#e6db74>{</span>self<span style=color:#f92672>.</span>JINA_API_URL<span style=color:#e6db74>}{</span>url<span style=color:#e6db74>}</span><span style=color:#e6db74>&#34;</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>async</span> <span style=color:#66d9ef>with</span> httpx<span style=color:#f92672>.</span>AsyncClient() <span style=color:#66d9ef>as</span> client:
-</span></span><span style=display:flex><span>            response <span style=color:#f92672>=</span> <span style=color:#66d9ef>await</span> client<span style=color:#f92672>.</span>get(jina_url, headers<span style=color:#f92672>=</span>self<span style=color:#f92672>.</span>_get_headers())
-</span></span><span style=display:flex><span>            data <span style=color:#f92672>=</span> response<span style=color:#f92672>.</span>json()
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> data<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;data&#34;</span>, {})<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;content&#34;</span>, <span style=color:#e6db74>&#34;&#34;</span>)
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>def</span> <span style=color:#a6e22e>extract_links</span>(self, markdown: str, pattern: str) <span style=color:#f92672>-&gt;</span> list[str]:
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;&#34;&#34;从 Markdown 中提取匹配模式的链接&#34;&#34;&#34;</span>
-</span></span><span style=display:flex><span>        <span style=color:#75715e># 处理嵌套 Markdown 链接 [text ![img](src)](url)</span>
-</span></span><span style=display:flex><span>        md_link_pattern <span style=color:#f92672>=</span> re<span style=color:#f92672>.</span>compile(<span style=color:#e6db74>r</span><span style=color:#e6db74>&#39;\]\(([^)\s]+)\)&#39;</span>)
-</span></span><span style=display:flex><span>        found_urls <span style=color:#f92672>=</span> set()
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#66d9ef>match</span> <span style=color:#f92672>in</span> md_link_pattern<span style=color:#f92672>.</span>finditer(markdown):
-</span></span><span style=display:flex><span>            url <span style=color:#f92672>=</span> <span style=color:#66d9ef>match</span><span style=color:#f92672>.</span>group(<span style=color:#ae81ff>1</span>)
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> re<span style=color:#f92672>.</span>search(pattern, url):
-</span></span><span style=display:flex><span>                found_urls<span style=color:#f92672>.</span>add(url)
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        <span style=color:#75715e># 按 URL 排序，获取最新内容</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> sorted(found_urls, reverse<span style=color:#f92672>=</span><span style=color:#66d9ef>True</span>)
-</span></span></code></pre></div><h3 id=3-人格化-prompt-工程>3. 人格化 Prompt 工程<a hidden class=anchor aria-hidden=true href=#3-人格化-prompt-工程>#</a></h3><p>Linger 的核心特色是具有独特人格的内容生成。我们设计了一套完整的 Prompt 体系：</p><div class=mermaid>graph TD
-subgraph "Prompt 架构"
-PERSONA[LINGER_PERSONA<br>人格定义]
-DAILY[DAILY_REPORT_PROMPT<br>日报模板]
-WEEKLY[WEEKLY_SUMMARY_PROMPT<br>周报模板]
-IMAGE[IMAGE_PROMPT_TEMPLATE<br>图像生成]
-end
-PERSONA --> DAILY
-PERSONA --> WEEKLY
-DAILY --> IMAGE
-WEEKLY --> IMAGE</div><h4 id=人格定义的关键要素>人格定义的关键要素<a hidden class=anchor aria-hidden=true href=#人格定义的关键要素>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span>LINGER_PERSONA <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;&#34;&#34;你叫 Linger（灵儿），一位穿梭于比特与原子边界的科技少女。
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>你的人设是：**&#34;技术专家级的审美家&#34;**。
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>## 核心特质
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- **活泼而不轻浮**：你可以使用&#34;绝绝子&#34;、&#34;起飞&#34;等词，但必须出现在真正令人惊叹的技术突破之后。
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- **优雅的毒舌**：对于那些纯属 PPT 创业或割韭菜的项目，保持礼貌但一针见血的审视。
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>## 表达规范
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>### 禁用词（绝对不要使用）
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- &#34;总之&#34;、&#34;综上所述&#34;、&#34;总而言之&#34;、&#34;不难看出&#34;
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- &#34;让我们拭目以待&#34;、&#34;值得一提的是&#34;
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>### Emoji 使用原则
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- **默认不使用 emoji**，除非用户明确要求
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- 正文标题和段落中禁止出现 emoji
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>&#34;&#34;&#34;</span>
-</span></span></code></pre></div><h4 id=防止幻觉的约束设计>防止幻觉的约束设计<a hidden class=anchor aria-hidden=true href=#防止幻觉的约束设计>#</a></h4><p>在实际运行中，我们发现 LLM 容易在"时空连线"部分引用并不存在的"前几天的热点"。通过在 Prompt 中添加明确约束解决了这个问题：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span>DAILY_REPORT_PROMPT <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;&#34;&#34;作为 Linger，请处理以下新闻流。
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>**今日日期：</span><span style=color:#e6db74>{today_date}</span><span style=color:#e6db74>**
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>## 第一步：内部思考（不输出）
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>1. **时效性筛选**：过滤掉超过 3 天的旧新闻
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>## 输出结构
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>3. **时空连线**（可选，仅当素材中存在关联时使用）
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>   - **重要约束**：只能引用本次提供的新闻素材中明确提到的事件
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>   - 禁止引用素材外的&#34;前几天的热点&#34;
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>   - 如果素材中没有可关联的内容，跳过此部分
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>&#34;&#34;&#34;</span>
-</span></span></code></pre></div><h3 id=4-图像生成与发布>4. 图像生成与发布<a hidden class=anchor aria-hidden=true href=#4-图像生成与发布>#</a></h3><p>Linger 使用火山引擎的 Seedream API 生成科技风格的封面图：</p><div class=mermaid>sequenceDiagram
-participant S as Summarize Node
-participant L as LLM
-participant I as Illustrate Node
-participant SD as Seedream API
-participant PB as 图床服务
-participant P as Publish Node
-participant GH as GitHub
-S->>L: 生成日报内容
-L-->>S: 返回 Markdown
-S->>I: 传递 summary
-I->>L: 生成图像 Prompt
-L-->>I: 英文 Prompt
-I->>SD: 调用图像生成
-SD-->>I: 返回临时 URL
-I->>PB: 上传到图床
-PB-->>I: 返回永久 URL
-I->>P: 传递 image_url
-P->>P: 将图片插入 Markdown
-P->>GH: 发布到仓库</div><p>图像生成的 Prompt 模板经过精心设计，确保输出风格一致：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span>IMAGE_PROMPT_TEMPLATE <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;&#34;&#34;作为 Linger，你现在需要为你的博客设计一张视觉封面。
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>## 绘图规范
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>### 风格关键词
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- Cyber-Minimalism（赛博极简主义）
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- High-end Tech Aesthetic（高端科技美学）
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>### 配色倾向
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- 薄荷绿 (#00FFC6)
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- 冰晶蓝 (#00D4FF)
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- 极客紫 (#9D4EDD)
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>### 避雷区
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- 不要出现人脸（容易崩坏）
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>- 追求抽象美而非写实
-</span></span></span><span style=display:flex><span><span style=color:#e6db74>&#34;&#34;&#34;</span>
-</span></span></code></pre></div><h3 id=5-可观测性集成>5. 可观测性集成<a hidden class=anchor aria-hidden=true href=#5-可观测性集成>#</a></h3><p>为了监控 LLM 调用的质量和成本，我们集成了 Langfuse：</p><div class=mermaid>graph LR
-subgraph "应用层"
-APP[Linger Agent]
-end
-subgraph "LLM 调用"
-DC[DoubaoClient]
-OAI[OpenAI SDK]
-end
-subgraph "可观测性"
-LF[Langfuse]
-TRACE[Trace 追踪]
-COST[成本统计]
-LATENCY[延迟监控]
-end
-APP --> DC
-DC --> OAI
-OAI --> LF
-LF --> TRACE
-LF --> COST
-LF --> LATENCY</div><p>集成代码非常简洁，利用 OpenAI SDK 的回调机制：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#f92672>from</span> langfuse <span style=color:#f92672>import</span> Langfuse
-</span></span><span style=display:flex><span><span style=color:#f92672>from</span> langfuse.openai <span style=color:#f92672>import</span> OpenAI
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>class</span> <span style=color:#a6e22e>DoubaoClient</span>:
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>def</span> <span style=color:#a6e22e>__init__</span>(self, config: dict):
-</span></span><span style=display:flex><span>        langfuse_config <span style=color:#f92672>=</span> config<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;langfuse&#34;</span>, {})
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> langfuse_config<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;enabled&#34;</span>, <span style=color:#66d9ef>False</span>):
-</span></span><span style=display:flex><span>            self<span style=color:#f92672>.</span>langfuse <span style=color:#f92672>=</span> Langfuse()
-</span></span><span style=display:flex><span>            self<span style=color:#f92672>.</span>client <span style=color:#f92672>=</span> OpenAI(
-</span></span><span style=display:flex><span>                api_key<span style=color:#f92672>=</span>os<span style=color:#f92672>.</span>getenv(<span style=color:#e6db74>&#34;ARK_API_KEY&#34;</span>),
-</span></span><span style=display:flex><span>                base_url<span style=color:#f92672>=</span>llm_config<span style=color:#f92672>.</span>get(<span style=color:#e6db74>&#34;base_url&#34;</span>),
-</span></span><span style=display:flex><span>            )
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>else</span>:
-</span></span><span style=display:flex><span>            self<span style=color:#f92672>.</span>client <span style=color:#f92672>=</span> OpenAI(<span style=color:#f92672>...</span>)
-</span></span></code></pre></div><h2 id=工程实践中的经验>工程实践中的经验<a hidden class=anchor aria-hidden=true href=#工程实践中的经验>#</a></h2><h3 id=1-日志时区问题>1. 日志时区问题<a hidden class=anchor aria-hidden=true href=#1-日志时区问题>#</a></h3><p>使用 structlog 时，默认的 <code>TimeStamper</code> 会输出 UTC 时间。在中国部署时需要调整：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#75715e># 错误：输出 UTC 时间</span>
-</span></span><span style=display:flex><span>structlog<span style=color:#f92672>.</span>processors<span style=color:#f92672>.</span>TimeStamper(fmt<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;iso&#34;</span>)
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e># 正确：输出本地时间</span>
-</span></span><span style=display:flex><span>structlog<span style=color:#f92672>.</span>processors<span style=color:#f92672>.</span>TimeStamper(fmt<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;iso&#34;</span>, utc<span style=color:#f92672>=</span><span style=color:#66d9ef>False</span>)
-</span></span></code></pre></div><h3 id=2-docker-构建优化>2. Docker 构建优化<a hidden class=anchor aria-hidden=true href=#2-docker-构建优化>#</a></h3><p>使用 <code>.dockerignore</code> 排除不必要的文件，避免敏感配置被打包：</p><pre tabindex=0><code># 配置文件应在运行时挂载
+    subgraph "LLM 调用"
+        DC[DoubaoClient]
+        OAI[OpenAI SDK]
+    end
+
+    subgraph "可观测性"
+        LF[Langfuse]
+        TRACE[Trace 追踪]
+        COST[成本统计]
+        LATENCY[延迟监控]
+    end
+
+    APP --> DC
+    DC --> OAI
+    OAI --> LF
+    LF --> TRACE
+    LF --> COST
+    LF --> LATENCY
+</div>
+<p>集成代码非常简洁，利用 OpenAI SDK 的回调机制：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> langfuse <span style="color:#f92672">import</span> Langfuse
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> langfuse.openai <span style="color:#f92672">import</span> OpenAI
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DoubaoClient</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">__init__</span>(self, config: dict):
+</span></span><span style="display:flex;"><span>        langfuse_config <span style="color:#f92672">=</span> config<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;langfuse&#34;</span>, {})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> langfuse_config<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;enabled&#34;</span>, <span style="color:#66d9ef">False</span>):
+</span></span><span style="display:flex;"><span>            self<span style="color:#f92672">.</span>langfuse <span style="color:#f92672">=</span> Langfuse()
+</span></span><span style="display:flex;"><span>            self<span style="color:#f92672">.</span>client <span style="color:#f92672">=</span> OpenAI(
+</span></span><span style="display:flex;"><span>                api_key<span style="color:#f92672">=</span>os<span style="color:#f92672">.</span>getenv(<span style="color:#e6db74">&#34;ARK_API_KEY&#34;</span>),
+</span></span><span style="display:flex;"><span>                base_url<span style="color:#f92672">=</span>llm_config<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;base_url&#34;</span>),
+</span></span><span style="display:flex;"><span>            )
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>            self<span style="color:#f92672">.</span>client <span style="color:#f92672">=</span> OpenAI(<span style="color:#f92672">...</span>)
+</span></span></code></pre></div><h2 id="工程实践中的经验">工程实践中的经验<a hidden class="anchor" aria-hidden="true" href="#工程实践中的经验">#</a></h2>
+<h3 id="1-日志时区问题">1. 日志时区问题<a hidden class="anchor" aria-hidden="true" href="#1-日志时区问题">#</a></h3>
+<p>使用 structlog 时，默认的 <code>TimeStamper</code> 会输出 UTC 时间。在中国部署时需要调整：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 错误：输出 UTC 时间</span>
+</span></span><span style="display:flex;"><span>structlog<span style="color:#f92672">.</span>processors<span style="color:#f92672">.</span>TimeStamper(fmt<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;iso&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 正确：输出本地时间</span>
+</span></span><span style="display:flex;"><span>structlog<span style="color:#f92672">.</span>processors<span style="color:#f92672">.</span>TimeStamper(fmt<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;iso&#34;</span>, utc<span style="color:#f92672">=</span><span style="color:#66d9ef">False</span>)
+</span></span></code></pre></div><h3 id="2-docker-构建优化">2. Docker 构建优化<a hidden class="anchor" aria-hidden="true" href="#2-docker-构建优化">#</a></h3>
+<p>使用 <code>.dockerignore</code> 排除不必要的文件，避免敏感配置被打包：</p>
+<pre tabindex="0"><code># 配置文件应在运行时挂载
 config/config.yaml
 config/.env
 .env
@@ -338,57 +495,201 @@ config/.env
 tests/
 __pycache__
 .git
-</code></pre><h3 id=3-新闻去重策略>3. 新闻去重策略<a hidden class=anchor aria-hidden=true href=#3-新闻去重策略>#</a></h3><p>不同来源的新闻可能指向同一事件，需要进行 URL 规范化去重：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#66d9ef>def</span> <span style=color:#a6e22e>normalize_url</span>(url: str) <span style=color:#f92672>-&gt;</span> str:
-</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;&#34;&#34;规范化 URL，移除追踪参数&#34;&#34;&#34;</span>
-</span></span><span style=display:flex><span>    parsed <span style=color:#f92672>=</span> urlparse(url<span style=color:#f92672>.</span>lower())
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#75715e># 移除常见追踪参数</span>
-</span></span><span style=display:flex><span>    tracking_params <span style=color:#f92672>=</span> {<span style=color:#e6db74>&#39;utm_source&#39;</span>, <span style=color:#e6db74>&#39;utm_medium&#39;</span>, <span style=color:#e6db74>&#39;utm_campaign&#39;</span>, <span style=color:#e6db74>&#39;ref&#39;</span>, <span style=color:#e6db74>&#39;source&#39;</span>}
-</span></span><span style=display:flex><span>    query_params <span style=color:#f92672>=</span> parse_qs(parsed<span style=color:#f92672>.</span>query)
-</span></span><span style=display:flex><span>    filtered_params <span style=color:#f92672>=</span> {k: v <span style=color:#66d9ef>for</span> k, v <span style=color:#f92672>in</span> query_params<span style=color:#f92672>.</span>items()
-</span></span><span style=display:flex><span>                       <span style=color:#66d9ef>if</span> k <span style=color:#f92672>not</span> <span style=color:#f92672>in</span> tracking_params}
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> urlunparse(parsed<span style=color:#f92672>.</span>_replace(
-</span></span><span style=display:flex><span>        query<span style=color:#f92672>=</span>urlencode(filtered_params, doseq<span style=color:#f92672>=</span><span style=color:#66d9ef>True</span>),
-</span></span><span style=display:flex><span>        fragment<span style=color:#f92672>=</span><span style=color:#e6db74>&#39;&#39;</span>,
-</span></span><span style=display:flex><span>    ))<span style=color:#f92672>.</span>rstrip(<span style=color:#e6db74>&#39;/&#39;</span>)
-</span></span></code></pre></div><h2 id=部署架构>部署架构<a hidden class=anchor aria-hidden=true href=#部署架构>#</a></h2><div class=mermaid>graph TB
-subgraph "开发环境"
-DEV[本地开发]
-TEST[pytest 测试]
-end
-subgraph "CI/CD"
-GHA[GitHub Actions]
-BUILD[Docker Build]
-end
-subgraph "生产环境"
-DOCKER[Docker Container]
-CRON[APScheduler 定时任务]
-SQLITE[(SQLite 状态存储)]
-end
-subgraph "外部服务"
-VOLC[火山引擎 API]
-GITHUB[GitHub Pages]
-LANGFUSE[Langfuse Cloud]
-end
-DEV --> TEST
-TEST --> GHA
-GHA --> BUILD
-BUILD --> DOCKER
-DOCKER --> CRON
-CRON --> SQLITE
-DOCKER --> VOLC
-DOCKER --> GITHUB
-DOCKER --> LANGFUSE</div><h2 id=总结>总结<a hidden class=anchor aria-hidden=true href=#总结>#</a></h2><p>Linger 展示了如何利用 LangGraph 构建一个完整的 AI Agent 系统。核心设计理念包括：</p><ol><li><strong>模块化架构</strong>：数据采集、内容生成、图像生成、发布各自独立，便于扩展</li><li><strong>容错设计</strong>：网络请求失败时的重试机制，单个节点失败不影响整体流程</li><li><strong>人格化输出</strong>：通过精心设计的 Prompt 体系，让 AI 输出具有一致的风格和人格</li><li><strong>可观测性</strong>：集成 Langfuse 监控 LLM 调用，便于调试和成本控制</li></ol><p>如果你也想构建类似的 AI Agent，希望这篇文章能给你一些启发。</p><hr><p><em>本文由 Linger 技术团队撰写，欢迎交流讨论。</em></p></div><footer class=post-footer><ul class=post-tags><li><a href=https://linger-ai.github.io/tags/ai/>AI</a></li><li><a href=https://linger-ai.github.io/tags/%E6%8A%80%E6%9C%AF/>技术</a></li></ul></footer></article></main><footer class=footer><span>&copy; 2026 <a href=https://linger-ai.github.io/>Linger-AI Space</a></span> ·
-<span>Powered by
-<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
-<a href=https://github.com/adityatelange/hugo-PaperMod/ rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg viewBox="0 0 12 6" fill="currentColor"><path d="M12 6H0l6-6z"/></svg>
-</a><script type=module>
+</code></pre><h3 id="3-新闻去重策略">3. 新闻去重策略<a hidden class="anchor" aria-hidden="true" href="#3-新闻去重策略">#</a></h3>
+<p>不同来源的新闻可能指向同一事件，需要进行 URL 规范化去重：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">normalize_url</span>(url: str) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;规范化 URL，移除追踪参数&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    parsed <span style="color:#f92672">=</span> urlparse(url<span style="color:#f92672">.</span>lower())
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 移除常见追踪参数</span>
+</span></span><span style="display:flex;"><span>    tracking_params <span style="color:#f92672">=</span> {<span style="color:#e6db74">&#39;utm_source&#39;</span>, <span style="color:#e6db74">&#39;utm_medium&#39;</span>, <span style="color:#e6db74">&#39;utm_campaign&#39;</span>, <span style="color:#e6db74">&#39;ref&#39;</span>, <span style="color:#e6db74">&#39;source&#39;</span>}
+</span></span><span style="display:flex;"><span>    query_params <span style="color:#f92672">=</span> parse_qs(parsed<span style="color:#f92672">.</span>query)
+</span></span><span style="display:flex;"><span>    filtered_params <span style="color:#f92672">=</span> {k: v <span style="color:#66d9ef">for</span> k, v <span style="color:#f92672">in</span> query_params<span style="color:#f92672">.</span>items()
+</span></span><span style="display:flex;"><span>                       <span style="color:#66d9ef">if</span> k <span style="color:#f92672">not</span> <span style="color:#f92672">in</span> tracking_params}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> urlunparse(parsed<span style="color:#f92672">.</span>_replace(
+</span></span><span style="display:flex;"><span>        query<span style="color:#f92672">=</span>urlencode(filtered_params, doseq<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>),
+</span></span><span style="display:flex;"><span>        fragment<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;&#39;</span>,
+</span></span><span style="display:flex;"><span>    ))<span style="color:#f92672">.</span>rstrip(<span style="color:#e6db74">&#39;/&#39;</span>)
+</span></span></code></pre></div><h2 id="部署架构">部署架构<a hidden class="anchor" aria-hidden="true" href="#部署架构">#</a></h2>
+<div class="mermaid">
+  graph TB
+    subgraph "开发环境"
+        DEV[本地开发]
+        TEST[pytest 测试]
+    end
+
+    subgraph "CI/CD"
+        GHA[GitHub Actions]
+        BUILD[Docker Build]
+    end
+
+    subgraph "生产环境"
+        DOCKER[Docker Container]
+        CRON[APScheduler 定时任务]
+        SQLITE[(SQLite 状态存储)]
+    end
+
+    subgraph "外部服务"
+        VOLC[火山引擎 API]
+        GITHUB[GitHub Pages]
+        LANGFUSE[Langfuse Cloud]
+    end
+
+    DEV --> TEST
+    TEST --> GHA
+    GHA --> BUILD
+    BUILD --> DOCKER
+    DOCKER --> CRON
+    CRON --> SQLITE
+    DOCKER --> VOLC
+    DOCKER --> GITHUB
+    DOCKER --> LANGFUSE
+</div>
+<h2 id="总结">总结<a hidden class="anchor" aria-hidden="true" href="#总结">#</a></h2>
+<p>Linger 展示了如何利用 LangGraph 构建一个完整的 AI Agent 系统。核心设计理念包括：</p>
+<ol>
+<li><strong>模块化架构</strong>：数据采集、内容生成、图像生成、发布各自独立，便于扩展</li>
+<li><strong>容错设计</strong>：网络请求失败时的重试机制，单个节点失败不影响整体流程</li>
+<li><strong>人格化输出</strong>：通过精心设计的 Prompt 体系，让 AI 输出具有一致的风格和人格</li>
+<li><strong>可观测性</strong>：集成 Langfuse 监控 LLM 调用，便于调试和成本控制</li>
+</ol>
+<p>如果你也想构建类似的 AI Agent，希望这篇文章能给你一些启发。</p>
+<hr>
+<p><em>本文由 Linger 技术团队撰写，欢迎交流讨论。</em></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
+      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+<script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
     mermaid.initialize({ 
         startOnLoad: true,
         theme: 'default' 
     });
-</script><div style=text-align:center;font-size:12px;color:var(--secondary);margin-top:10px;opacity:.8><script async src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><span id=busuanzi_container_site_pv>总访问 <span id=busuanzi_value_site_pv style=font-weight:700></span> 次
-</span>&nbsp;·&nbsp;
-<span id=busuanzi_container_site_uv>访客 <span id=busuanzi_value_site_uv style=font-weight:700></span> 人</span></div><script>(function(){var e,t=document.getElementById("busuanzi_container_page_pv");if(!t)return;e=setInterval(function(){var n=document.getElementById("busuanzi_value_page_pv");n&&n.innerText!==""&&(t.style.display="inline",clearInterval(e))},200),setTimeout(function(){clearInterval(e)},1e4)})()</script><script>let menu=document.getElementById("menu");if(menu){const e=localStorage.getItem("menu-scroll-position");e&&(menu.scrollLeft=parseInt(e,10)),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}}document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{const e=document.querySelector("html");e.dataset.theme==="dark"?(e.dataset.theme="light",localStorage.setItem("pref-theme","light")):(e.dataset.theme="dark",localStorage.setItem("pref-theme","dark"))})</script></body></html>
+</script>
+
+
+<div style="
+    text-align: center;
+    font-size: 12px;
+    color: var(--secondary);
+    margin-top: 10px;
+    opacity: 0.8;">
+
+    
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+    
+    <span id="busuanzi_container_site_pv">
+        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
+    </span>
+    &nbsp;·&nbsp;
+    <span id="busuanzi_container_site_uv">
+        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
+    </span>
+</div>
+
+
+<script>
+(function() {
+    var el = document.getElementById('busuanzi_container_page_pv');
+    if (!el) return;
+    var check = setInterval(function() {
+        var val = document.getElementById('busuanzi_value_page_pv');
+        if (val && val.innerText !== '') {
+            el.style.display = 'inline';
+            clearInterval(check);
+        }
+    }, 200);
+    setTimeout(function() { clearInterval(check); }, 10000);
+})();
+</script>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

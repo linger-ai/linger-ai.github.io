@@ -1,30 +1,452 @@
-<!doctype html><html lang=en dir=auto data-theme=auto><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>Posts | Linger-AI Space</title><meta name=keywords content><meta name=description content="Posts - Linger-AI Space"><meta name=author content="Linger"><link rel=canonical href=https://linger-ai.github.io/posts/><link crossorigin=anonymous href=/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css integrity="sha256-2jIR5e+Ge/K3X9WmUVz+1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as=style><link rel=icon href=https://linger-ai.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://linger-ai.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://linger-ai.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://linger-ai.github.io/apple-touch-icon.png><link rel=mask-icon href=https://linger-ai.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><link rel=alternate type=application/rss+xml href=https://linger-ai.github.io/posts/index.xml title=rss><link rel=alternate hreflang=en href=https://linger-ai.github.io/posts/><noscript><style>#theme-toggle,.top-link{display:none}</style><style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--code-block-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51);color-scheme:dark}.list{background:var(--theme)}.toc{background:var(--entry)}}@media(prefers-color-scheme:light){.list::-webkit-scrollbar-thumb{border-color:var(--code-bg)}}</style></noscript><script>localStorage.getItem("pref-theme")==="dark"?document.querySelector("html").dataset.theme="dark":localStorage.getItem("pref-theme")==="light"?document.querySelector("html").dataset.theme="light":window.matchMedia("(prefers-color-scheme: dark)").matches?document.querySelector("html").dataset.theme="dark":document.querySelector("html").dataset.theme="light"</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-M0R8M4JVEY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-M0R8M4JVEY")}</script><meta property="og:url" content="https://linger-ai.github.io/posts/"><meta property="og:site_name" content="Linger-AI Space"><meta property="og:title" content="Posts"><meta property="og:locale" content="en-us"><meta property="og:type" content="website"><meta name=twitter:card content="summary"><meta name=twitter:title content="Posts"><meta name=twitter:description content><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://linger-ai.github.io/posts/"}]}</script></head><body class=list id=top><header class=header><nav class=nav><div class=logo><a href=https://linger-ai.github.io/ accesskey=h title="Linger-AI Space (Alt + H)">Linger-AI Space</a><div class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)" aria-label="Toggle theme">
-<svg id="moon" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-<svg id="sun" width="24" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></div></div><ul id=menu><li><a href=https://linger-ai.github.io/posts title=文章><span class=active>文章</span></a></li><li><a href=https://linger-ai.github.io/bulletin title=灵儿情报站><span>灵儿情报站</span></a></li><li><a href=https://linger-ai.github.io/archives title=归档><span>归档</span></a></li><li><a href=https://linger-ai.github.io/tags title=标签><span>标签</span></a></li><li><a href=https://linger-ai.github.io/search title="搜索 (Alt + /)" accesskey=/><span>搜索</span></a></li></ul></nav></header><main class=main><header class=page-header><h1>Posts</h1></header><article class=post-entry><header class=entry-header><h2 class=entry-hint-parent>Harness Engineering 实践指南：让 AI Agent 可靠地写代码</h2></header><div class=entry-content><p>2026 年 2 月，“Harness Engineering"这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Posts | Linger-AI Space</title>
+<meta name="keywords" content="">
+<meta name="description" content="Posts - Linger-AI Space">
+<meta name="author" content="Linger">
+<link rel="canonical" href="http://localhost:1313/posts/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/posts/index.xml" title="rss">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body class="list" id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts" title="文章">
+                    <span class="active">文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/bulletin" title="灵儿情报站">
+                    <span>灵儿情报站</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/archives" title="归档">
+                    <span>归档</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main"> 
+<header class="page-header">
+  <h1>
+    Posts
+  </h1>
+</header>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（七）：Harness Engineering 工程实践
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p> 本文是 DeerFlow 源码解析系列的收尾篇。前六篇深入了各个子系统的实现细节，本篇退后一步，审视支撑这些子系统的工程基础设施——AI Agent 指导文件、架构边界强制、CI/CD 管线、代码规范，以及对整个项目工程实践的综合评估。
+一个 AI Agent 系统的代码质量不只取决于 Agent 本身写得多好，还取决于一个更底层的问题：这个项目是否有足够的工程纪律来让多人（包括 AI 助手）安全地协作。DeerFlow 在这方面做了大量工作，有些做得非常出色，有些还在进化中。
+一、CLAUDE.md——给 AI Agent 写的架构文档 1.1 文档定位 backend/CLAUDE.md（523 行）不是一份普通的 README。它的开头就表明了身份：
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+这是一份专门为 AI 编程助手撰写的架构指导文档。它的设计目标不是教人类开发者&#34;怎么用这个项目&#34;，而是让 AI 助手&#34;在不看代码的情况下理解架构决策，并做出正确的修改&#34;。
+1.2 文档结构 CLAUDE.md 的组织遵循&#34;从全局到细节&#34;的信息架构：
+1. Project Overview — 一段话定位项目 2. Architecture — 四服务架构 &#43; 端口 3. Project Structure — 完整目录树 4. Important Guidelines — 文档更新政策（全大写 CRITICAL） 5. Commands — 可执行的命令列表 6. Architecture Details — 每个子系统的详细说明 - Harness/App Split - Agent System - Middleware Chain - Configuration System - Gateway API - Sandbox System - Subagent System - Tool System - MCP System - Skills System - Model Factory - IM Channels System - Memory System - Reflection System - Config Schema - Embedded Client 7. Development Workflow — TDD 要求 &#43; 运行方式 8. Key Features — 用户可见的功能特性 9. Code Style — 代码风格约定 10. Documentation Links — 详细文档指引 1.3 为什么这样的文档很重要 在传统软件工程中，架构文档是给人读的，可以假设读者会&#34;浏览代码来补全理解&#34;。但 AI Agent 的上下文窗口有限，不能随意浏览整个代码库。CLAUDE.md 需要在一个文件内提供足够的信息，让 AI 做出正确的决策。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 16:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1365 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（七）：Harness Engineering 工程实践" href="http://localhost:1313/posts/deerflow-07-harness-engineering/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（六）：长期记忆、IM 通道与多端接入
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p> 本文是 DeerFlow 源码解析系列的第六篇。前五篇分别覆盖了请求生命周期、提示词工程、主从 Agent 协作、Skills/MCP 工具生态和沙箱隔离。本篇拆解两个相对独立但直接决定&#34;能不能日常用&#34;的子系统——长期记忆（Memory）和 IM 通道（Channels）。
+一个 AI Agent 要从&#34;演示品&#34;走向&#34;日常使用的工具&#34;，需要解决两个根本问题：记住用户和触达用户。DeerFlow 的 Memory 子系统负责前者，Channels 子系统负责后者。它们在代码层面分别位于 Harness 层和 App 层，依赖方向严格单向，但在功能上形成了一个完整的闭环——Agent 通过 IM 通道接收消息、处理请求，处理完成后将对话摘要写入长期记忆，下次任何通道上的对话都能受益于这些记忆。
+一、长期记忆系统架构 1.1 存储格式 DeerFlow 的记忆存储在一个 JSON 文件中（默认路径 backend/.deer-flow/memory.json），结构由 _create_empty_memory() 定义（updater.py:43-59）：
+def _create_empty_memory() -&gt; dict[str, Any]: return { &#34;version&#34;: &#34;1.0&#34;, &#34;lastUpdated&#34;: datetime.utcnow().isoformat() &#43; &#34;Z&#34;, &#34;user&#34;: { &#34;workContext&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;personalContext&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;topOfMind&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, }, &#34;history&#34;: { &#34;recentMonths&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;earlierContext&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, &#34;longTermBackground&#34;: {&#34;summary&#34;: &#34;&#34;, &#34;updatedAt&#34;: &#34;&#34;}, }, &#34;facts&#34;: [], } 这个设计将记忆分为三个维度：
+维度 Section 用途 更新频率 User Context workContext 职业角色、项目、技术栈（2-3 句） 低 personalContext 语言、沟通偏好、兴趣（1-2 句） 低 topOfMind 当前多个并行关注点（3-5 句） 高 History recentMonths 近 1-3 月活动详情（4-6 句） 中 earlierContext 3-12 月前的模式（3-5 句） 低 longTermBackground 不变的基础背景（2-4 句） 极低 Facts facts[] 离散事实条目，带置信度、分类、来源 每次对话 Facts 的数据结构比 summary 更有意思：
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 15:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1672 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（六）：长期记忆、IM 通道与多端接入" href="http://localhost:1313/posts/deerflow-06-memory-im-channels/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（五）：沙箱隔离与代码执行
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>上一篇分析了 Skills 和 MCP 的加载机制。这篇聚焦沙箱系统——Agent 执行 bash 命令、读写文件时，底层的安全隔离是如何实现的，以及虚拟路径系统如何在 Agent 感知和主机文件系统之间建立一层安全的翻译层。
+双 Provider 架构 DeerFlow 的沙箱系统围绕两个核心抽象建立：Sandbox（执行环境）和 SandboxProvider（环境管理器）。
+# backend/packages/harness/deerflow/sandbox/sandbox.py:4-6 class Sandbox(ABC): &#34;&#34;&#34;Abstract base class for sandbox environments&#34;&#34;&#34; # 四个核心操作：execute_command, read_file, list_dir, write_file # backend/packages/harness/deerflow/sandbox/sandbox_provider.py:8-10 class SandboxProvider(ABC): &#34;&#34;&#34;Abstract base class for sandbox providers&#34;&#34;&#34; # 三个生命周期方法：acquire, get, release 目前有两个实现：
+Provider 隔离级别 适用场景 LocalSandboxProvider 无隔离（直接在宿主执行） 本地开发 AioSandboxProvider Docker 容器隔离 生产环境 Provider 的选择由 config.yaml 中的 sandbox.use 字段决定，通过反射加载：
+# backend/packages/harness/deerflow/sandbox/sandbox_provider.py:52-56 def get_sandbox_provider(**kwargs) -&gt; SandboxProvider: global _default_sandbox_provider if _default_sandbox_provider is None: config = get_app_config() cls = resolve_class(config.sandbox.use, SandboxProvider) _default_sandbox_provider = cls(**kwargs) return _default_sandbox_provider 全局单例模式，一个进程只有一个 Provider 实例。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 14:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1144 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（五）：沙箱隔离与代码执行" href="http://localhost:1313/posts/deerflow-05-sandbox-isolation/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（四）：Skills、MCP 与工具生态
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>上一篇分析了主/子 Agent 的协作模型和安全边界。这篇转向 Agent 的&#34;手脚&#34;：DeerFlow 如何发现、加载和管理外部工具，包括 Skills 系统的三层渐进加载、MCP 协议的多传输支持，以及工具延迟发现机制。
+工具的四个来源 当主 Agent 被创建时，get_available_tools() 会汇集来自四个不同来源的工具：
+# backend/packages/harness/deerflow/tools/tools.py:113-114 logger.info(f&#34;Total tools loaded: {len(loaded_tools)}, built-in tools: {len(builtin_tools)}, &#34; f&#34;MCP tools: {len(mcp_tools)}, ACP tools: {len(acp_tools)}&#34;) return loaded_tools &#43; builtin_tools &#43; mcp_tools &#43; acp_tools 来源 说明 典型工具 loaded_tools config.yaml 中声明的工具（通过反射加载） web_search, bash, read_file, write_file builtin_tools 代码中硬编码的内置工具 present_file, ask_clarification, task, view_image, tool_search mcp_tools MCP 服务器暴露的工具 取决于配置的 MCP 服务器 acp_tools ACP Agent 调用工具 invoke_acp_agent 其中 builtin_tools 的组成是动态的，根据运行时配置决定哪些工具被包含：
+# backend/packages/harness/deerflow/tools/tools.py:47-62 builtin_tools = BUILTIN_TOOLS.copy() # [present_file, ask_clarification] if subagent_enabled: builtin_tools.extend(SUBAGENT_TOOLS) # &#43; [task] model_config = config.get_model_config(model_name) if model_config is not None and model_config.supports_vision: builtin_tools.append(view_image_tool) # &#43; [view_image] if config.tool_search.enabled: # ... 注册延迟工具 builtin_tools.append(tool_search_tool) # &#43; [tool_search] 这种按需组装的设计避免了给 Agent 提供它不需要的工具。不支持视觉的模型看不到 view_image，未开启子 Agent 模式时没有 task 工具。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 13:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>1583 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（四）：Skills、MCP 与工具生态" href="http://localhost:1313/posts/deerflow-04-skills-mcp-tools/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（三）：主从 Agent 协作与安全边界
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>上一篇分析了系统提示词的动态组装和上下文压缩策略。这篇聚焦 DeerFlow 的多 Agent 架构：主 Agent 如何把任务委派给子 Agent，两者之间有哪些隔离机制，以及 7 层纵深防御如何阻止失控的循环调用。
+两层扁平架构，不是递归树 DeerFlow 的 Agent 拓扑是严格的两层结构：一个主 Agent（Lead Agent）协调零到多个子 Agent（Subagent）。子 Agent 不能再创建子 Agent。
+graph TD User([用户]) --&gt; Lead[Lead Agent] Lead --&gt;|task tool| SA1[子 Agent 1general-purpose] Lead --&gt;|task tool| SA2[子 Agent 2general-purpose] Lead --&gt;|task tool| SA3[子 Agent 3bash] SA1 -.-&gt;|结果| Lead SA2 -.-&gt;|结果| Lead SA3 -.-&gt;|结果| Lead Lead --&gt; User style Lead fill:#4A90D9,color:#fff style SA1 fill:#7B68EE,color:#fff style SA2 fill:#7B68EE,color:#fff style SA3 fill:#9370DB,color:#fff 为什么不用递归多层？因为递归 Agent 调用有三个实际问题：
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 12:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>1453 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（三）：主从 Agent 协作与安全边界" href="http://localhost:1313/posts/deerflow-03-multi-agent-collaboration/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（二）：系统提示词工程与上下文架构
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>上一篇我们走完了 Chat 请求的端到端链路。这篇放大 Agent Loop 内部最核心的部分：系统提示词是怎么被组装出来的，以及 DeerFlow 用了哪些手段防止上下文窗口被撑爆。
+系统提示词不是一个字符串，是一个条件组装过程 DeerFlow 的主 Agent 系统提示词不是写死在代码里的一段话。apply_prompt_template() 根据运行时配置，从 12 个可选 section 中挑选需要的部分，拼成最终的 prompt：
+# backend/packages/harness/deerflow/agents/lead_agent/prompt.py:468 def apply_prompt_template( subagent_enabled: bool = False, max_concurrent_subagents: int = 3, *, agent_name: str | None = None, available_skills: set[str] | None = None, ) -&gt; str: memory_context = _get_memory_context(agent_name) subagent_section = _build_subagent_section(n) if subagent_enabled else &#34;&#34; skills_section = get_skills_prompt_section(available_skills) deferred_tools_section = get_deferred_tools_prompt_section() acp_section = _build_acp_section() prompt = SYSTEM_PROMPT_TEMPLATE.format( agent_name=agent_name or &#34;DeerFlow 2.0&#34;, soul=get_agent_soul(agent_name), skills_section=skills_section, deferred_tools_section=deferred_tools_section, memory_context=memory_context, subagent_section=subagent_section, # ... ) return prompt &#43; f&#34;\n&lt;current_date&gt;{datetime.now().strftime(&#39;%Y-%m-%d, %A&#39;)}&lt;/current_date&gt;&#34; 每个 placeholder 背后都有一个独立的加载函数和条件判断。我们逐个看它们什么时候被注入、什么时候被跳过。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 11:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>742 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（二）：系统提示词工程与上下文架构" href="http://localhost:1313/posts/deerflow-02-prompt-engineering-context/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>DeerFlow 是字节跳动开源的 AI Agent 运行时框架，基于 LangGraph &#43; FastAPI &#43; Next.js 构建。这个系列共 7 篇文章，从源码层面拆解它的设计和实现。
+第一篇从最直观的路径入手：用户在浏览器里输入一句话、按下 Enter，到看到 AI 回复，中间到底经过了什么？
+四个服务，各司其职 DeerFlow 的后端并不是一个单体服务，而是由 nginx 统一代理的四个独立进程：
+┌─────────────┐ │ Browser │ └──────┬──────┘ │ :2026 ┌──────▼──────┐ │ nginx │ ← 唯一入口 ├─────────────┤ │ /api/langgraph/* → LangGraph Server (:2024) Agent 运行时 │ /api/models → Gateway (:8001) 配置/管理 API │ /api/skills → Gateway (:8001) │ /api/threads/*/uploads → Gateway (:8001) │ /* → Frontend (:3000) Next.js UI └─────────────┘ 一个容易产生误解的地方是：Chat 的流式传输不经过 Gateway。Gateway 负责的是模型列表、MCP 配置、技能管理、文件上传这些&#34;管理侧&#34;的 API。Chat 消息直接走 nginx → LangGraph Server，Gateway 完全不参与。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-28 10:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1094 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to DeerFlow 源码解析（一）：一个 Chat 请求的完整生命周期" href="http://localhost:1313/posts/deerflow-01-chat-request-lifecycle/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Harness Engineering 实践指南：让 AI Agent 可靠地写代码
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>2026 年 2 月，“Harness Engineering&#34;这个词在 AI 工程圈突然火了。Mitchell Hashimoto 在博客里首次命名，OpenAI 紧接着发了百万行代码的实验报告，Anthropic 和 Martin Fowler 相继跟进。几周之内，它成了讨论 AI Agent 开发绕不开的话题。
 这篇文章把 Harness Engineering 的核心概念和实战经验做一次精简梳理，帮你理解它是什么、为什么重要，以及怎么落地。
 一、Harness 是什么 Harness 本意是马具——缰绳、鞍具那一套东西，把马的力气引到正确方向上。用来类比 AI Agent 很合适：LLM 就像一匹蛮力十足但方向感不太行的马，跑得快但容易跑偏。
 Harness Engineering 是围绕 AI Coding Agent 设计约束机制、反馈回路、工作流控制和持续改进循环的系统工程实践。
 它和 Prompt Engineering、Context Engineering 构成嵌套关系：
 Prompt Engineering — 怎么跟模型说话 Context Engineering — 给 Agent 看什么 Harness Engineering — 系统怎么防崩、怎么量化、怎么修 Phil Schmid 打了个比方：模型是 CPU，Harness 是操作系统。CPU 再强，OS 拉胯也白搭。
 二、Agent 为什么会翻车 别急着纠结选哪个模型。Can.ac 的实验给出了一个惊人的数据：仅改变 Harness 的工具格式（编辑接口），就让 Grok Code Fast 1 从 6.7% 跃升至 68.3%——没有修改任何模型权重。LangChain 也验证了类似结论：同一模型靠 Harness 改进在 Terminal Bench 2.0 上从第 30 名跳到第 5 名。
-...</p></div><footer class=entry-footer><span title='2026-03-26 16:00:00 +0800 CST'>March 26, 2026</span>&nbsp;·&nbsp;<span>3 min</span>&nbsp;·&nbsp;<span>495 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></footer><a class=entry-link aria-label="post link to Harness Engineering 实践指南：让 AI Agent 可靠地写代码" href=https://linger-ai.github.io/posts/harness-engineering-guide/></a></article><article class=post-entry><header class=entry-header><h2 class=entry-hint-parent>深入剖析 Eino adk 实现原理</h2></header><div class=entry-content><p>1. 核心数据结构 层次 核心结构 职责 接口层 Agent, ResumableAgent, OnSubAgents 定义 Agent 契约 实现层 ChatModelAgent, workflowAgent, flowAgent, agentTool, deterministicTransferTo 具体 Agent 实现 事件层 AgentEvent → AgentOutput → MessageVariant Agent 执行产物 动作层 AgentAction → TransferToAgent / Interrupt / BreakLoop / Exit 控制流指令 状态层 State, ChatModelAgentState, sequentialWorkflowState 等 ReAct/工作流运行时状态 上下文层 Runner → runContext → runSession → agentEventWrapper / laneEvents 执行上下文与会话管理 中断层 InterruptInfo, ResumeInfo, serialization, bridgeStore 中断持久化与恢复 通信层 AsyncIterator / AsyncGenerator → UnboundedChan 异步事件流 1.1 Agent 接口与实现类层次图 classDiagram class Agent { &lt;> +Name(ctx) string +Description(ctx) string +Run(ctx, input, opts) AsyncIterator~AgentEvent~ } class ResumableAgent { &lt;> +Resume(ctx, info, opts) AsyncIterator~AgentEvent~ } class OnSubAgents { &lt;> +OnSetSubAgents(ctx, subAgents) error +OnSetAsSubAgent(ctx, parent) error +OnDisallowTransferToParent(ctx) error } Agent &lt;|-- ResumableAgent class ChatModelAgent { -name string -description string -instruction string -model ToolCallingChatModel -toolsConfig ToolsConfig -genModelInput GenModelInput -exit BaseTool -outputKey string -maxIterations int -subAgents []Agent -parentAgent Agent -beforeChatModels []func -afterChatModels []func -modelRetryConfig *ModelRetryConfig -run runFunc -frozen uint32 } class flowAgent { +Agent (embedded) -subAgents []*flowAgent -parentAgent *flowAgent -disallowTransferToParent bool -historyRewriter HistoryRewriter -checkPointStore CheckPointStore } class workflowAgent { -name string -description string -subAgents []*flowAgent -mode workflowAgentMode -maxIterations int } class agentWithDeterministicTransferTo { -agent Agent -toAgentNames []string } class agentTool { -agent Agent -fullChatHistoryAsInput bool -inputSchema *ParamsOneOf +Info(ctx) ToolInfo +InvokableRun(ctx, args, opts) string } Agent &lt;|.. ChatModelAgent OnSubAgents &lt;|.. ChatModelAgent Agent &lt;|.. flowAgent ResumableAgent &lt;|.. flowAgent Agent &lt;|.. workflowAgent ResumableAgent &lt;|.. workflowAgent Agent &lt;|.. agentWithDeterministicTransferTo flowAgent o-- Agent : wraps flowAgent o-- "*" flowAgent : subAgents flowAgent o-- "0..1" flowAgent : parentAgent workflowAgent o-- "*" flowAgent : subAgents agentWithDeterministicTransferTo o-- Agent : wraps agentTool o-- Agent : wraps 1.2 AgentEvent 事件体系图 classDiagram class AgentEvent { +AgentName string +RunPath []RunStep +Output *AgentOutput +Action *AgentAction +Err error } class RunStep { -agentName string +String() string +Equals(r1) bool } class AgentOutput { +MessageOutput *MessageVariant +CustomizedOutput any } class MessageVariant { +IsStreaming bool +Message Message +MessageStream MessageStream +Role RoleType +ToolName string +GetMessage() Message } class AgentAction { +Exit bool +Interrupted *InterruptInfo +TransferToAgent *TransferToAgentAction +BreakLoop *BreakLoopAction +CustomizedAction any -internalInterrupted *InterruptSignal } class TransferToAgentAction { +DestAgentName string } class BreakLoopAction { +From string +Done bool +CurrentIterations int } class InterruptInfo { +Data any +InterruptContexts []*InterruptCtx } class AgentInput { +Messages []Message +EnableStreaming bool } AgentEvent *-- "0..1" AgentOutput AgentEvent *-- "0..1" AgentAction AgentEvent *-- "*" RunStep : RunPath AgentOutput *-- "0..1" MessageVariant AgentAction *-- "0..1" InterruptInfo AgentAction *-- "0..1" TransferToAgentAction AgentAction *-- "0..1" BreakLoopAction 1.3 运行时上下文与会话状态图 classDiagram class Runner { -a Agent -enableStreaming bool -store CheckPointStore +Run(ctx, messages, opts) AsyncIterator +Resume(ctx, checkPointID, opts) AsyncIterator +ResumeWithParams(ctx, id, params, opts) AsyncIterator } class runContext { +RootInput *AgentInput +RunPath []RunStep +Session *runSession } class runSession { +Values map~string,any~ -valuesMtx *Mutex +Events []*agentEventWrapper +LaneEvents *laneEvents -mtx Mutex +addEvent(event) +getEvents() []*agentEventWrapper +addValue(key, value) +getValues() map } class laneEvents { +Events []*agentEventWrapper +Parent *laneEvents } class agentEventWrapper { +*AgentEvent (embedded) -mu Mutex -concatenatedMessage Message +TS int64 +StreamErr error } class HistoryEntry { +IsUserInput bool +AgentName string +Message Message } Runner --> runContext : creates via context runContext *-- "1" runSession : Session runContext *-- "*" RunStep : RunPath runContext *-- "1" AgentInput : RootInput runSession *-- "*" agentEventWrapper : Events runSession *-- "0..1" laneEvents : LaneEvents(parallel) laneEvents *-- "*" agentEventWrapper : Events laneEvents o-- "0..1" laneEvents : Parent (linked list) agentEventWrapper *-- "1" AgentEvent 1.4 ReAct 循环与 ChatModelAgent 内部状态图 classDiagram class ChatModelAgent { -name string -model ToolCallingChatModel -toolsConfig ToolsConfig +Run(ctx, input, opts) AsyncIterator +Resume(ctx, info, opts) AsyncIterator -buildRunFunc(ctx) runFunc } class reactConfig { -model ToolCallingChatModel -toolsConfig *ToolsNodeConfig -toolsReturnDirectly map~string,bool~ -agentName string -maxIterations int -beforeChatModel []func -afterChatModel []func -modelRetryConfig *ModelRetryConfig } class State { +Messages []Message +HasReturnDirectly bool +ReturnDirectlyToolCallID string +ToolGenActions map~string,AgentAction~ +AgentName string +RemainingIterations int } class ChatModelAgentState { +Messages []Message } class ToolsConfig { +ToolsNodeConfig (embedded) +ReturnDirectly map~string,bool~ +EmitInternalEvents bool } class AgentMiddleware { +AdditionalInstruction string +AdditionalTools []BaseTool +BeforeChatModel func +AfterChatModel func +WrapToolCall ToolMiddleware } class cbHandler { +*AsyncGenerator (embedded) -agentName string -enableStreaming bool -store *bridgeStore -returnDirectlyToolEvent atomic.Value -ctx context.Context -addr Address -modelRetryConfigs *ModelRetryConfig } ChatModelAgent --> reactConfig : creates ChatModelAgent --> ToolsConfig : uses ChatModelAgent --> AgentMiddleware : configures reactConfig --> State : genState() ChatModelAgent --> cbHandler : creates for callbacks cbHandler --> AgentEvent : sends events 1.5 中断与恢复（Interrupt/Resume）流程图 classDiagram class InterruptInfo { +Data any +InterruptContexts []*InterruptCtx } class ResumeInfo { +EnableStreaming bool +*InterruptInfo (embedded) +WasInterrupted bool +InterruptState any +IsResumeTarget bool +ResumeData any } class serialization { +RunCtx *runContext +Info *InterruptInfo +EnableStreaming bool +InterruptID2Address map~string,Address~ +InterruptID2State map~string,InterruptState~ } class bridgeStore { +Data []byte +Valid bool +Get(ctx, key) ([]byte, bool, error) +Set(ctx, key, data) error } class WorkflowInterruptInfo { +OrigInput *AgentInput +SequentialInterruptIndex int +SequentialInterruptInfo *InterruptInfo +LoopIterations int +ParallelInterruptInfo map~int,InterruptInfo~ } class sequentialWorkflowState { +InterruptIndex int } class parallelWorkflowState { +SubAgentEvents map~int,agentEventWrapper[]~ } class loopWorkflowState { +LoopIterations int +SubAgentIndex int } class ChatModelAgentInterruptInfo { +Info *InterruptInfo +Data []byte } class ResumeParams { +Targets map~string,any~ } ResumeInfo *-- "1" InterruptInfo serialization *-- "1" runContext serialization *-- "0..1" InterruptInfo WorkflowInterruptInfo *-- "0..1" InterruptInfo : SequentialInterruptInfo WorkflowInterruptInfo *-- "*" InterruptInfo : ParallelInterruptInfo ChatModelAgentInterruptInfo *-- "1" InterruptInfo Runner --> serialization : save/load checkpoint Runner --> bridgeStore : internal state bridge Runner --> ResumeParams : resume with targets 1.6 异步通信与事件流转全景图 flowchart TB subgraph User["用户层"] RunnerRun["Runner.Run() / Runner.Resume()"] end subgraph FlowLayer["编排层 (flowAgent)"] FA["flowAgent.run()"] FA -->|"Transfer"| SubFA["subAgent.Run()"] SubFA -->|events| FA end subgraph AgentImpl["Agent 实现层"] CMA["ChatModelAgent"] WA["workflowAgent"] DT["deterministicTransferTo"] end subgraph ReactLoop["ReAct 循环 (compose.Graph)"] CM["ChatModel Node"] TN["ToolsNode"] CM -->|"has tool_calls?"| TN TN -->|"return_directly?"| END1["END"] TN -->|"continue"| CM CM -->|"no tool_calls"| END2["END"] end subgraph ToolLayer["工具层"] T1["普通 Tool"] AT["agentTool (嵌套 Agent)"] AT --> NestedAgent["内部 Agent.Run()"] end subgraph AsyncComm["异步通信"] GEN["AsyncGenerator"] ITER["AsyncIterator"] GEN -->|"Send(event)"| CH["UnboundedChan"] CH -->|"Next()"| ITER end subgraph SessionState["会话状态"] RS["runSession"] EV["Events[]"] VAL["Values map"] LE["laneEvents (parallel)"] RS --- EV RS --- VAL RS --- LE end RunnerRun --> FA FA --> CMA FA --> WA FA --> DT CMA --> ReactLoop TN --> T1 TN --> AT CMA -.->|"callbacks"| GEN WA -->|"sequential/parallel/loop"| FA GEN -.-> ITER ITER --> RunnerRun FA -.->|"addEvent"| RS style User fill:#e1f5fe style FlowLayer fill:#f3e5f5 style AgentImpl fill:#e8f5e9 style ReactLoop fill:#fff3e0 style ToolLayer fill:#fce4ec style AsyncComm fill:#f5f5f5 style SessionState fill:#fffde7 2. 整体执行逻辑 2.1 全局执行流程总览 Eino ADK 的执行链路可以用一句话概括：用户调用 → Runner 入口 → flowAgent 编排层 → 具体 Agent 实现层 → ReAct 循环 → 事件流回传。整个过程是 纯异步、流式、事件驱动 的架构。
-...</p></div><footer class=entry-footer><span title='2026-03-02 11:12:33 +0800 CST'>March 2, 2026</span>&nbsp;·&nbsp;<span>39 min</span>&nbsp;·&nbsp;<span>8277 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></footer><a class=entry-link aria-label="post link to 深入剖析 Eino adk 实现原理" href=https://linger-ai.github.io/posts/eino-technical-deep-dive/></a></article><article class=post-entry><header class=entry-header><h2 class=entry-hint-parent>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析</h2></header><div class=entry-content><p>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 引言 在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-26 16:00:00 +0800 CST'>March 26, 2026</span>&nbsp;·&nbsp;<span>3 min</span>&nbsp;·&nbsp;<span>495 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to Harness Engineering 实践指南：让 AI Agent 可靠地写代码" href="http://localhost:1313/posts/harness-engineering-guide/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">深入剖析 Eino adk 实现原理
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>1. 核心数据结构 层次 核心结构 职责 接口层 Agent, ResumableAgent, OnSubAgents 定义 Agent 契约 实现层 ChatModelAgent, workflowAgent, flowAgent, agentTool, deterministicTransferTo 具体 Agent 实现 事件层 AgentEvent → AgentOutput → MessageVariant Agent 执行产物 动作层 AgentAction → TransferToAgent / Interrupt / BreakLoop / Exit 控制流指令 状态层 State, ChatModelAgentState, sequentialWorkflowState 等 ReAct/工作流运行时状态 上下文层 Runner → runContext → runSession → agentEventWrapper / laneEvents 执行上下文与会话管理 中断层 InterruptInfo, ResumeInfo, serialization, bridgeStore 中断持久化与恢复 通信层 AsyncIterator / AsyncGenerator → UnboundedChan 异步事件流 1.1 Agent 接口与实现类层次图 classDiagram class Agent { &lt;&gt; &#43;Name(ctx) string &#43;Description(ctx) string &#43;Run(ctx, input, opts) AsyncIterator~AgentEvent~ } class ResumableAgent { &lt;&gt; &#43;Resume(ctx, info, opts) AsyncIterator~AgentEvent~ } class OnSubAgents { &lt;&gt; &#43;OnSetSubAgents(ctx, subAgents) error &#43;OnSetAsSubAgent(ctx, parent) error &#43;OnDisallowTransferToParent(ctx) error } Agent &lt;|-- ResumableAgent class ChatModelAgent { -name string -description string -instruction string -model ToolCallingChatModel -toolsConfig ToolsConfig -genModelInput GenModelInput -exit BaseTool -outputKey string -maxIterations int -subAgents []Agent -parentAgent Agent -beforeChatModels []func -afterChatModels []func -modelRetryConfig *ModelRetryConfig -run runFunc -frozen uint32 } class flowAgent { &#43;Agent (embedded) -subAgents []*flowAgent -parentAgent *flowAgent -disallowTransferToParent bool -historyRewriter HistoryRewriter -checkPointStore CheckPointStore } class workflowAgent { -name string -description string -subAgents []*flowAgent -mode workflowAgentMode -maxIterations int } class agentWithDeterministicTransferTo { -agent Agent -toAgentNames []string } class agentTool { -agent Agent -fullChatHistoryAsInput bool -inputSchema *ParamsOneOf &#43;Info(ctx) ToolInfo &#43;InvokableRun(ctx, args, opts) string } Agent &lt;|.. ChatModelAgent OnSubAgents &lt;|.. ChatModelAgent Agent &lt;|.. flowAgent ResumableAgent &lt;|.. flowAgent Agent &lt;|.. workflowAgent ResumableAgent &lt;|.. workflowAgent Agent &lt;|.. agentWithDeterministicTransferTo flowAgent o-- Agent : wraps flowAgent o-- &#34;*&#34; flowAgent : subAgents flowAgent o-- &#34;0..1&#34; flowAgent : parentAgent workflowAgent o-- &#34;*&#34; flowAgent : subAgents agentWithDeterministicTransferTo o-- Agent : wraps agentTool o-- Agent : wraps 1.2 AgentEvent 事件体系图 classDiagram class AgentEvent { &#43;AgentName string &#43;RunPath []RunStep &#43;Output *AgentOutput &#43;Action *AgentAction &#43;Err error } class RunStep { -agentName string &#43;String() string &#43;Equals(r1) bool } class AgentOutput { &#43;MessageOutput *MessageVariant &#43;CustomizedOutput any } class MessageVariant { &#43;IsStreaming bool &#43;Message Message &#43;MessageStream MessageStream &#43;Role RoleType &#43;ToolName string &#43;GetMessage() Message } class AgentAction { &#43;Exit bool &#43;Interrupted *InterruptInfo &#43;TransferToAgent *TransferToAgentAction &#43;BreakLoop *BreakLoopAction &#43;CustomizedAction any -internalInterrupted *InterruptSignal } class TransferToAgentAction { &#43;DestAgentName string } class BreakLoopAction { &#43;From string &#43;Done bool &#43;CurrentIterations int } class InterruptInfo { &#43;Data any &#43;InterruptContexts []*InterruptCtx } class AgentInput { &#43;Messages []Message &#43;EnableStreaming bool } AgentEvent *-- &#34;0..1&#34; AgentOutput AgentEvent *-- &#34;0..1&#34; AgentAction AgentEvent *-- &#34;*&#34; RunStep : RunPath AgentOutput *-- &#34;0..1&#34; MessageVariant AgentAction *-- &#34;0..1&#34; InterruptInfo AgentAction *-- &#34;0..1&#34; TransferToAgentAction AgentAction *-- &#34;0..1&#34; BreakLoopAction 1.3 运行时上下文与会话状态图 classDiagram class Runner { -a Agent -enableStreaming bool -store CheckPointStore &#43;Run(ctx, messages, opts) AsyncIterator &#43;Resume(ctx, checkPointID, opts) AsyncIterator &#43;ResumeWithParams(ctx, id, params, opts) AsyncIterator } class runContext { &#43;RootInput *AgentInput &#43;RunPath []RunStep &#43;Session *runSession } class runSession { &#43;Values map~string,any~ -valuesMtx *Mutex &#43;Events []*agentEventWrapper &#43;LaneEvents *laneEvents -mtx Mutex &#43;addEvent(event) &#43;getEvents() []*agentEventWrapper &#43;addValue(key, value) &#43;getValues() map } class laneEvents { &#43;Events []*agentEventWrapper &#43;Parent *laneEvents } class agentEventWrapper { &#43;*AgentEvent (embedded) -mu Mutex -concatenatedMessage Message &#43;TS int64 &#43;StreamErr error } class HistoryEntry { &#43;IsUserInput bool &#43;AgentName string &#43;Message Message } Runner --&gt; runContext : creates via context runContext *-- &#34;1&#34; runSession : Session runContext *-- &#34;*&#34; RunStep : RunPath runContext *-- &#34;1&#34; AgentInput : RootInput runSession *-- &#34;*&#34; agentEventWrapper : Events runSession *-- &#34;0..1&#34; laneEvents : LaneEvents(parallel) laneEvents *-- &#34;*&#34; agentEventWrapper : Events laneEvents o-- &#34;0..1&#34; laneEvents : Parent (linked list) agentEventWrapper *-- &#34;1&#34; AgentEvent 1.4 ReAct 循环与 ChatModelAgent 内部状态图 classDiagram class ChatModelAgent { -name string -model ToolCallingChatModel -toolsConfig ToolsConfig &#43;Run(ctx, input, opts) AsyncIterator &#43;Resume(ctx, info, opts) AsyncIterator -buildRunFunc(ctx) runFunc } class reactConfig { -model ToolCallingChatModel -toolsConfig *ToolsNodeConfig -toolsReturnDirectly map~string,bool~ -agentName string -maxIterations int -beforeChatModel []func -afterChatModel []func -modelRetryConfig *ModelRetryConfig } class State { &#43;Messages []Message &#43;HasReturnDirectly bool &#43;ReturnDirectlyToolCallID string &#43;ToolGenActions map~string,AgentAction~ &#43;AgentName string &#43;RemainingIterations int } class ChatModelAgentState { &#43;Messages []Message } class ToolsConfig { &#43;ToolsNodeConfig (embedded) &#43;ReturnDirectly map~string,bool~ &#43;EmitInternalEvents bool } class AgentMiddleware { &#43;AdditionalInstruction string &#43;AdditionalTools []BaseTool &#43;BeforeChatModel func &#43;AfterChatModel func &#43;WrapToolCall ToolMiddleware } class cbHandler { &#43;*AsyncGenerator (embedded) -agentName string -enableStreaming bool -store *bridgeStore -returnDirectlyToolEvent atomic.Value -ctx context.Context -addr Address -modelRetryConfigs *ModelRetryConfig } ChatModelAgent --&gt; reactConfig : creates ChatModelAgent --&gt; ToolsConfig : uses ChatModelAgent --&gt; AgentMiddleware : configures reactConfig --&gt; State : genState() ChatModelAgent --&gt; cbHandler : creates for callbacks cbHandler --&gt; AgentEvent : sends events 1.5 中断与恢复（Interrupt/Resume）流程图 classDiagram class InterruptInfo { &#43;Data any &#43;InterruptContexts []*InterruptCtx } class ResumeInfo { &#43;EnableStreaming bool &#43;*InterruptInfo (embedded) &#43;WasInterrupted bool &#43;InterruptState any &#43;IsResumeTarget bool &#43;ResumeData any } class serialization { &#43;RunCtx *runContext &#43;Info *InterruptInfo &#43;EnableStreaming bool &#43;InterruptID2Address map~string,Address~ &#43;InterruptID2State map~string,InterruptState~ } class bridgeStore { &#43;Data []byte &#43;Valid bool &#43;Get(ctx, key) ([]byte, bool, error) &#43;Set(ctx, key, data) error } class WorkflowInterruptInfo { &#43;OrigInput *AgentInput &#43;SequentialInterruptIndex int &#43;SequentialInterruptInfo *InterruptInfo &#43;LoopIterations int &#43;ParallelInterruptInfo map~int,InterruptInfo~ } class sequentialWorkflowState { &#43;InterruptIndex int } class parallelWorkflowState { &#43;SubAgentEvents map~int,agentEventWrapper[]~ } class loopWorkflowState { &#43;LoopIterations int &#43;SubAgentIndex int } class ChatModelAgentInterruptInfo { &#43;Info *InterruptInfo &#43;Data []byte } class ResumeParams { &#43;Targets map~string,any~ } ResumeInfo *-- &#34;1&#34; InterruptInfo serialization *-- &#34;1&#34; runContext serialization *-- &#34;0..1&#34; InterruptInfo WorkflowInterruptInfo *-- &#34;0..1&#34; InterruptInfo : SequentialInterruptInfo WorkflowInterruptInfo *-- &#34;*&#34; InterruptInfo : ParallelInterruptInfo ChatModelAgentInterruptInfo *-- &#34;1&#34; InterruptInfo Runner --&gt; serialization : save/load checkpoint Runner --&gt; bridgeStore : internal state bridge Runner --&gt; ResumeParams : resume with targets 1.6 异步通信与事件流转全景图 flowchart TB subgraph User[&#34;用户层&#34;] RunnerRun[&#34;Runner.Run() / Runner.Resume()&#34;] end subgraph FlowLayer[&#34;编排层 (flowAgent)&#34;] FA[&#34;flowAgent.run()&#34;] FA --&gt;|&#34;Transfer&#34;| SubFA[&#34;subAgent.Run()&#34;] SubFA --&gt;|events| FA end subgraph AgentImpl[&#34;Agent 实现层&#34;] CMA[&#34;ChatModelAgent&#34;] WA[&#34;workflowAgent&#34;] DT[&#34;deterministicTransferTo&#34;] end subgraph ReactLoop[&#34;ReAct 循环 (compose.Graph)&#34;] CM[&#34;ChatModel Node&#34;] TN[&#34;ToolsNode&#34;] CM --&gt;|&#34;has tool_calls?&#34;| TN TN --&gt;|&#34;return_directly?&#34;| END1[&#34;END&#34;] TN --&gt;|&#34;continue&#34;| CM CM --&gt;|&#34;no tool_calls&#34;| END2[&#34;END&#34;] end subgraph ToolLayer[&#34;工具层&#34;] T1[&#34;普通 Tool&#34;] AT[&#34;agentTool (嵌套 Agent)&#34;] AT --&gt; NestedAgent[&#34;内部 Agent.Run()&#34;] end subgraph AsyncComm[&#34;异步通信&#34;] GEN[&#34;AsyncGenerator&#34;] ITER[&#34;AsyncIterator&#34;] GEN --&gt;|&#34;Send(event)&#34;| CH[&#34;UnboundedChan&#34;] CH --&gt;|&#34;Next()&#34;| ITER end subgraph SessionState[&#34;会话状态&#34;] RS[&#34;runSession&#34;] EV[&#34;Events[]&#34;] VAL[&#34;Values map&#34;] LE[&#34;laneEvents (parallel)&#34;] RS --- EV RS --- VAL RS --- LE end RunnerRun --&gt; FA FA --&gt; CMA FA --&gt; WA FA --&gt; DT CMA --&gt; ReactLoop TN --&gt; T1 TN --&gt; AT CMA -.-&gt;|&#34;callbacks&#34;| GEN WA --&gt;|&#34;sequential/parallel/loop&#34;| FA GEN -.-&gt; ITER ITER --&gt; RunnerRun FA -.-&gt;|&#34;addEvent&#34;| RS style User fill:#e1f5fe style FlowLayer fill:#f3e5f5 style AgentImpl fill:#e8f5e9 style ReactLoop fill:#fff3e0 style ToolLayer fill:#fce4ec style AsyncComm fill:#f5f5f5 style SessionState fill:#fffde7 2. 整体执行逻辑 2.1 全局执行流程总览 Eino ADK 的执行链路可以用一句话概括：用户调用 → Runner 入口 → flowAgent 编排层 → 具体 Agent 实现层 → ReAct 循环 → 事件流回传。整个过程是 纯异步、流式、事件驱动 的架构。
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-03-02 11:12:33 +0800 CST'>March 2, 2026</span>&nbsp;·&nbsp;<span>39 min</span>&nbsp;·&nbsp;<span>8277 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to 深入剖析 Eino adk 实现原理" href="http://localhost:1313/posts/eino-technical-deep-dive/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析 引言 在信息爆炸的时代，每天有海量的科技新闻涌现，如何高效地筛选、整理并输出有价值的内容，成为了一个值得探索的问题。Linger（灵儿）是一个基于 LangGraph 构建的 AI Agent 系统，能够自动采集科技新闻、生成具有独特人格的日报/周报，并自动发布到博客平台。
 本文将深入解析 Linger 的技术架构、核心模块设计以及在实际开发中遇到的工程挑战与解决方案。
 系统架构概览 Linger 采用了 LangGraph 作为工作流编排引擎，整体架构如下：
-graph TB subgraph "数据采集层" RSS[RSS Collector] WEB[Web Scraper] JINA[Jina Reader] end subgraph "LangGraph Workflow" COLLECT[Collect Node] SUMMARIZE[Summarize Node] ILLUSTRATE[Illustrate Node] PUBLISH[Publish Node] end subgraph "AI 服务层" LLM[Doubao LLM] IMG[Seedream 图像生成] end subgraph "输出层" GH[GitHub Pages] PICBED[图床服务] end RSS --> COLLECT WEB --> COLLECT JINA --> WEB COLLECT --> SUMMARIZE SUMMARIZE --> LLM LLM --> SUMMARIZE SUMMARIZE --> ILLUSTRATE ILLUSTRATE --> IMG IMG --> PICBED ILLUSTRATE --> PUBLISH PUBLISH --> GH 核心模块详解 1. LangGraph 工作流设计 LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：
-...</p></div><footer class=entry-footer><span title='2026-02-26 20:03:33 +0800 CST'>February 26, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>826 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></footer><a class=entry-link aria-label="post link to Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析" href=https://linger-ai.github.io/posts/linger-technical-deep-dive/></a></article><article class=post-entry><header class=entry-header><h2 class=entry-hint-parent>ADK 多智能体协作的状态管理与冲突解决策略</h2></header><div class=entry-content><p>一、问题空间 多智能体协作场景中，状态管理面临以下核心挑战：
-挑战 具体问题 共享状态并发访问 多个 Agent 同时读写 Session Values 事件历史的一致性 并行 Agent 同时产出事件，如何保序？ 图内部状态的并发安全 ReAct Graph 内 ChatModel 和多个 Tool 并行访问 State 嵌套 Agent 的状态隔离 agentTool 内部 Agent 不应污染外部的对话历史 执行路径的状态归属 在多层嵌套中，哪些事件属于哪个 Agent？ 中断后的状态一致性 中断恢复后，各层状态如何保持一致？ ADK 针对这些挑战，不是用一个通用的并发控制方案，而是在架构层面就规避了大部分冲突的可能。下面逐一分析。
-二、核心策略：通过架构设计规避冲突 2.1 策略总览 flowchart TB subgraph Strategies["ADK 的六大冲突解决策略"] S1["① 执行拓扑约束(同一时刻只有一个 Agent 执行)"] S2["② 分层锁隔离(不同数据用不同的锁)"] S3["③ Lane 分区写入(并行时各写各的)"] S4["④ RunPath 归属过滤(只记录自己层级的事件)"] S5["⑤ Session 隔离边界(agentTool 创建新 Session)"] S6["⑥ 不可变数据原则(fork 后 Parent 不可变)"] end S1 --> T1["Transfer/Sequential无并发"] S2 --> T2["Events锁 + Values锁互不阻塞"] S3 --> T3["Parallel 场景无锁写入"] S4 --> T4["嵌套 Agent事件不重复记录"] S5 --> T5["agentTool历史隔离"] S6 --> T6["Lane Parent链无锁遍历"] 三、策略一：执行拓扑约束 ADK 的多 Agent 执行模型在绝大多数场景下是 严格串行 的：
-...</p></div><footer class=entry-footer><span title='2026-02-13 15:03:33 +0800 CST'>February 13, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1186 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id=busuanzi_container_page_pv style=display:none><span id=busuanzi_value_page_pv></span> views</span></footer><a class=entry-link aria-label="post link to ADK 多智能体协作的状态管理与冲突解决策略" href=https://linger-ai.github.io/posts/adk-multi-agent-collab/></a></article></main><footer class=footer><span>&copy; 2026 <a href=https://linger-ai.github.io/>Linger-AI Space</a></span> ·
-<span>Powered by
-<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
-<a href=https://github.com/adityatelange/hugo-PaperMod/ rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg viewBox="0 0 12 6" fill="currentColor"><path d="M12 6H0l6-6z"/></svg>
-</a><script type=module>
+graph TB subgraph &#34;数据采集层&#34; RSS[RSS Collector] WEB[Web Scraper] JINA[Jina Reader] end subgraph &#34;LangGraph Workflow&#34; COLLECT[Collect Node] SUMMARIZE[Summarize Node] ILLUSTRATE[Illustrate Node] PUBLISH[Publish Node] end subgraph &#34;AI 服务层&#34; LLM[Doubao LLM] IMG[Seedream 图像生成] end subgraph &#34;输出层&#34; GH[GitHub Pages] PICBED[图床服务] end RSS --&gt; COLLECT WEB --&gt; COLLECT JINA --&gt; WEB COLLECT --&gt; SUMMARIZE SUMMARIZE --&gt; LLM LLM --&gt; SUMMARIZE SUMMARIZE --&gt; ILLUSTRATE ILLUSTRATE --&gt; IMG IMG --&gt; PICBED ILLUSTRATE --&gt; PUBLISH PUBLISH --&gt; GH 核心模块详解 1. LangGraph 工作流设计 LangGraph 是 LangChain 团队推出的状态机工作流框架，非常适合构建多步骤的 AI Agent。Linger 的工作流定义如下：
+...</p>
+  </div>
+  <footer class="entry-footer">
+
+<span title='2026-02-26 20:03:33 +0800 CST'>February 26, 2026</span>&nbsp;·&nbsp;<span>4 min</span>&nbsp;·&nbsp;<span>826 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span></footer>
+  <a class="entry-link" aria-label="post link to Linger：基于 LangGraph 的 AI 科技日报生成系统技术解析" href="http://localhost:1313/posts/linger-technical-deep-dive/"></a>
+</article>
+<footer class="page-footer">
+  <nav class="pagination">
+    <a class="next" href="http://localhost:1313/posts/page/2/">Next&nbsp;&nbsp;»
+    </a>
+  </nav>
+</footer>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+<script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
     mermaid.initialize({ 
         startOnLoad: true,
         theme: 'default' 
     });
-</script><div style=text-align:center;font-size:12px;color:var(--secondary);margin-top:10px;opacity:.8><script async src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><span id=busuanzi_container_site_pv>总访问 <span id=busuanzi_value_site_pv style=font-weight:700></span> 次
-</span>&nbsp;·&nbsp;
-<span id=busuanzi_container_site_uv>访客 <span id=busuanzi_value_site_uv style=font-weight:700></span> 人</span></div><script>(function(){var e,t=document.getElementById("busuanzi_container_page_pv");if(!t)return;e=setInterval(function(){var n=document.getElementById("busuanzi_value_page_pv");n&&n.innerText!==""&&(t.style.display="inline",clearInterval(e))},200),setTimeout(function(){clearInterval(e)},1e4)})()</script><script>let menu=document.getElementById("menu");if(menu){const e=localStorage.getItem("menu-scroll-position");e&&(menu.scrollLeft=parseInt(e,10)),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}}document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{const e=document.querySelector("html");e.dataset.theme==="dark"?(e.dataset.theme="light",localStorage.setItem("pref-theme","light")):(e.dataset.theme="dark",localStorage.setItem("pref-theme","dark"))})</script></body></html>
+</script>
+
+
+<div style="
+    text-align: center;
+    font-size: 12px;
+    color: var(--secondary);
+    margin-top: 10px;
+    opacity: 0.8;">
+
+    
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+    
+    <span id="busuanzi_container_site_pv">
+        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
+    </span>
+    &nbsp;·&nbsp;
+    <span id="busuanzi_container_site_uv">
+        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
+    </span>
+</div>
+
+
+<script>
+(function() {
+    var el = document.getElementById('busuanzi_container_page_pv');
+    if (!el) return;
+    var check = setInterval(function() {
+        var val = document.getElementById('busuanzi_value_page_pv');
+        if (val && val.innerText !== '') {
+            el.style.display = 'inline';
+            clearInterval(check);
+        }
+    }, 200);
+    setTimeout(function() { clearInterval(check); }, 10000);
+})();
+</script>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

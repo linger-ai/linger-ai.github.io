@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>DeerFlow 源码解析（五）：沙箱隔离与代码执行 | Linger-AI Space</title>
+<meta name="keywords" content="AI, 技术, DeerFlow">
+<meta name="description" content="上一篇分析了 Skills 和 MCP 的加载机制。这篇聚焦沙箱系统——Agent 执行 bash 命令、读写文件时，底层的安全隔离是如何实现的，以及虚拟路径系统如何在 Agent 感知和主机文件系统之间建立一层安全的翻译层。
+双 Provider 架构
+DeerFlow 的沙箱系统围绕两个核心抽象建立：Sandbox（执行环境）和 SandboxProvider（环境管理器）。
+# backend/packages/harness/deerflow/sandbox/sandbox.py:4-6
+class Sandbox(ABC):
+    &#34;&#34;&#34;Abstract base class for sandbox environments&#34;&#34;&#34;
+    # 四个核心操作：execute_command, read_file, list_dir, write_file
+# backend/packages/harness/deerflow/sandbox/sandbox_provider.py:8-10
+class SandboxProvider(ABC):
+    &#34;&#34;&#34;Abstract base class for sandbox providers&#34;&#34;&#34;
+    # 三个生命周期方法：acquire, get, release
+目前有两个实现：
+
+  
+      
+          Provider
+          隔离级别
+          适用场景
+      
+  
+  
+      
+          LocalSandboxProvider
+          无隔离（直接在宿主执行）
+          本地开发
+      
+      
+          AioSandboxProvider
+          Docker 容器隔离
+          生产环境
+      
+  
+
+Provider 的选择由 config.yaml 中的 sandbox.use 字段决定，通过反射加载：
+# backend/packages/harness/deerflow/sandbox/sandbox_provider.py:52-56
+def get_sandbox_provider(**kwargs) -&gt; SandboxProvider:
+    global _default_sandbox_provider
+    if _default_sandbox_provider is None:
+        config = get_app_config()
+        cls = resolve_class(config.sandbox.use, SandboxProvider)
+        _default_sandbox_provider = cls(**kwargs)
+    return _default_sandbox_provider
+全局单例模式，一个进程只有一个 Provider 实例。">
+<meta name="author" content="Linger">
+<link rel="canonical" href="http://localhost:1313/posts/deerflow-05-sandbox-isolation/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.da3211e5ef867bf2b75fd5a6515cfed7195c011e8ab735694e203810a827097b.css" integrity="sha256-2jIR5e&#43;Ge/K3X9WmUVz&#43;1xlcAR6KtzVpTiA4EKgnCXs=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/deerflow-05-sandbox-isolation/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Linger-AI Space (Alt + H)">Linger-AI Space</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/posts" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/bulletin" title="灵儿情报站">
+                    <span>灵儿情报站</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/archives" title="归档">
+                    <span>归档</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      DeerFlow 源码解析（五）：沙箱隔离与代码执行
+    </h1>
+    <div class="post-meta">
+
+<span title='2026-03-28 14:00:00 +0800 CST'>March 28, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>1144 words</span>&nbsp;·&nbsp;<span>Linger</span>&nbsp;·&nbsp;<span id="busuanzi_container_page_pv" style="display:none"><span id="busuanzi_value_page_pv"></span> views</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>上一篇分析了 Skills 和 MCP 的加载机制。这篇聚焦沙箱系统——Agent 执行 bash 命令、读写文件时，底层的安全隔离是如何实现的，以及虚拟路径系统如何在 Agent 感知和主机文件系统之间建立一层安全的翻译层。</p>
+<h2 id="双-provider-架构">双 Provider 架构<a hidden class="anchor" aria-hidden="true" href="#双-provider-架构">#</a></h2>
+<p>DeerFlow 的沙箱系统围绕两个核心抽象建立：<code>Sandbox</code>（执行环境）和 <code>SandboxProvider</code>（环境管理器）。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/sandbox.py:4-6</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Sandbox</span>(ABC):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;Abstract base class for sandbox environments&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 四个核心操作：execute_command, read_file, list_dir, write_file</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/sandbox_provider.py:8-10</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SandboxProvider</span>(ABC):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;Abstract base class for sandbox providers&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 三个生命周期方法：acquire, get, release</span>
+</span></span></code></pre></div><p>目前有两个实现：</p>
+<table>
+  <thead>
+      <tr>
+          <th>Provider</th>
+          <th>隔离级别</th>
+          <th>适用场景</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>LocalSandboxProvider</code></td>
+          <td>无隔离（直接在宿主执行）</td>
+          <td>本地开发</td>
+      </tr>
+      <tr>
+          <td><code>AioSandboxProvider</code></td>
+          <td>Docker 容器隔离</td>
+          <td>生产环境</td>
+      </tr>
+  </tbody>
+</table>
+<p>Provider 的选择由 <code>config.yaml</code> 中的 <code>sandbox.use</code> 字段决定，通过反射加载：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/sandbox_provider.py:52-56</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_sandbox_provider</span>(<span style="color:#f92672">**</span>kwargs) <span style="color:#f92672">-&gt;</span> SandboxProvider:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">global</span> _default_sandbox_provider
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> _default_sandbox_provider <span style="color:#f92672">is</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>        config <span style="color:#f92672">=</span> get_app_config()
+</span></span><span style="display:flex;"><span>        cls <span style="color:#f92672">=</span> resolve_class(config<span style="color:#f92672">.</span>sandbox<span style="color:#f92672">.</span>use, SandboxProvider)
+</span></span><span style="display:flex;"><span>        _default_sandbox_provider <span style="color:#f92672">=</span> cls(<span style="color:#f92672">**</span>kwargs)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> _default_sandbox_provider
+</span></span></code></pre></div><p>全局单例模式，一个进程只有一个 Provider 实例。</p>
+<h2 id="localsandboxprovider开发者模式">LocalSandboxProvider：开发者模式<a hidden class="anchor" aria-hidden="true" href="#localsandboxprovider开发者模式">#</a></h2>
+<p>本地 Provider 的实现极其简单——它只有一个全局单例 <code>LocalSandbox</code>，ID 固定为 <code>&quot;local&quot;</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/local/local_sandbox_provider.py:45-49</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">acquire</span>(self, thread_id: str <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">None</span>) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">global</span> _singleton
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> _singleton <span style="color:#f92672">is</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>        _singleton <span style="color:#f92672">=</span> LocalSandbox(<span style="color:#e6db74">&#34;local&#34;</span>, path_mappings<span style="color:#f92672">=</span>self<span style="color:#f92672">.</span>_path_mappings)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> _singleton<span style="color:#f92672">.</span>id
+</span></span></code></pre></div><p>所有线程共享同一个沙箱实例。<code>release()</code> 是空操作——本地模式下没有什么需要释放的。</p>
+<p>命令执行直接调用 <code>subprocess.run()</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/local/local_sandbox.py:154-174</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">execute_command</span>(self, command: str) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    resolved_command <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_resolve_paths_in_command(command)
+</span></span><span style="display:flex;"><span>    result <span style="color:#f92672">=</span> subprocess<span style="color:#f92672">.</span>run(
+</span></span><span style="display:flex;"><span>        resolved_command,
+</span></span><span style="display:flex;"><span>        executable<span style="color:#f92672">=</span>self<span style="color:#f92672">.</span>_get_shell(),
+</span></span><span style="display:flex;"><span>        shell<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>        capture_output<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>        text<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>        timeout<span style="color:#f92672">=</span><span style="color:#ae81ff">600</span>,
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    output <span style="color:#f92672">=</span> result<span style="color:#f92672">.</span>stdout
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> result<span style="color:#f92672">.</span>stderr:
+</span></span><span style="display:flex;"><span>        output <span style="color:#f92672">+=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">Std Error:</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">{</span>result<span style="color:#f92672">.</span>stderr<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>_reverse_resolve_paths_in_output(output)
+</span></span></code></pre></div><p>Shell 选择顺序是 <code>zsh → bash → sh → PATH 中的 sh</code>，600 秒超时。注意它在执行前做了路径翻译（<code>_resolve_paths_in_command</code>），在返回前做了逆向翻译（<code>_reverse_resolve_paths_in_output</code>）。这是虚拟路径系统的一部分，下面详细分析。</p>
+<p><strong>没有任何进程隔离</strong>。Agent 的命令和你本地终端执行的命令拥有完全相同的权限。这意味着本地模式下，Agent 理论上可以 <code>rm -rf /</code>。安全完全依赖 Agent 自身的&quot;自律&quot;和路径验证层。</p>
+<h2 id="aiosandboxprovider容器化隔离">AioSandboxProvider：容器化隔离<a hidden class="anchor" aria-hidden="true" href="#aiosandboxprovider容器化隔离">#</a></h2>
+<p>这是生产环境使用的 Provider，每个线程分配独立的 Docker 容器。架构比本地模式复杂得多。</p>
+<h3 id="容器生命周期">容器生命周期<a hidden class="anchor" aria-hidden="true" href="#容器生命周期">#</a></h3>
+<div class="mermaid">
+  stateDiagram-v2
+    [*] --> Idle: 首次 acquire()
+    Idle --> Active: acquire()
+    Active --> Active: get() (更新活跃时间)
+    Active --> WarmPool: release()
+    WarmPool --> Active: 同线程 acquire() (零冷启动)
+    WarmPool --> Destroyed: 空闲超时 / 容量驱逐
+    Active --> Destroyed: destroy() / shutdown()
+    Destroyed --> [*]
+</div>
+<p>三个关键状态：</p>
+<ul>
+<li><strong>Active</strong>：正在服务某个线程，存储在 <code>_sandboxes</code> 字典中。</li>
+<li><strong>Warm Pool</strong>：已释放但容器仍在运行，存储在 <code>_warm_pool</code> 字典中。下次同线程请求可以直接复用，避免容器冷启动。</li>
+<li><strong>Destroyed</strong>：容器已停止，所有资源已清理。</li>
+</ul>
+<h3 id="确定性-id">确定性 ID<a hidden class="anchor" aria-hidden="true" href="#确定性-id">#</a></h3>
+<p>沙箱 ID 不是随机生成的，而是由 <code>thread_id</code> 确定性地推导：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox_provider.py:181-187</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@staticmethod</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_deterministic_sandbox_id</span>(thread_id: str) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> hashlib<span style="color:#f92672">.</span>sha256(thread_id<span style="color:#f92672">.</span>encode())<span style="color:#f92672">.</span>hexdigest()[:<span style="color:#ae81ff">8</span>]
+</span></span></code></pre></div><p>同一个 <code>thread_id</code> 永远对应同一个沙箱 ID。这让跨进程发现成为可能——另一个进程可以根据 <code>thread_id</code> 计算出沙箱 ID，然后通过 backend 发现已有容器，而不需要进程间共享状态。</p>
+<h3 id="三层获取策略">三层获取策略<a hidden class="anchor" aria-hidden="true" href="#三层获取策略">#</a></h3>
+<p><code>_acquire_internal()</code> 实现了三层获取策略：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># aio_sandbox_provider.py:375-418 (简化)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_acquire_internal</span>(self, thread_id):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 层 1：进程内缓存（最快）</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> thread_id <span style="color:#f92672">in</span> self<span style="color:#f92672">.</span>_thread_sandboxes:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>_thread_sandboxes[thread_id]
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 层 1.5：Warm Pool（容器仍在运行，无冷启动）</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> sandbox_id <span style="color:#f92672">in</span> self<span style="color:#f92672">.</span>_warm_pool:
+</span></span><span style="display:flex;"><span>        info, _ <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_warm_pool<span style="color:#f92672">.</span>pop(sandbox_id)
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># ... 重新注册为 Active</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> sandbox_id
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 层 2：Backend 发现 + 创建（跨进程文件锁保护）</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>_discover_or_create_with_lock(thread_id, sandbox_id)
+</span></span></code></pre></div><p>层 2 使用文件锁（<code>fcntl.flock</code>）序列化跨进程的容器创建操作：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># aio_sandbox_provider.py:420-469 (简化)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_discover_or_create_with_lock</span>(self, thread_id, sandbox_id):
+</span></span><span style="display:flex;"><span>    lock_path <span style="color:#f92672">=</span> paths<span style="color:#f92672">.</span>thread_dir(thread_id) <span style="color:#f92672">/</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>sandbox_id<span style="color:#e6db74">}</span><span style="color:#e6db74">.lock&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> open(lock_path, <span style="color:#e6db74">&#34;a&#34;</span>) <span style="color:#66d9ef">as</span> lock_file:
+</span></span><span style="display:flex;"><span>        _lock_file_exclusive(lock_file)
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 加锁后再次检查缓存和 warm pool（双重检查）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 尝试 backend 发现</span>
+</span></span><span style="display:flex;"><span>        discovered <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_backend<span style="color:#f92672">.</span>discover(sandbox_id)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> discovered <span style="color:#f92672">is</span> <span style="color:#f92672">not</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> discovered<span style="color:#f92672">.</span>sandbox_id
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 都没有，创建新容器</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>_create_sandbox(thread_id, sandbox_id)
+</span></span></code></pre></div><h3 id="容量管理和驱逐">容量管理和驱逐<a hidden class="anchor" aria-hidden="true" href="#容量管理和驱逐">#</a></h3>
+<p>容器数量受 <code>replicas</code> 配置限制（默认 3）。当达到上限时，优先驱逐 Warm Pool 中最旧的容器：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># aio_sandbox_provider.py:508-519</span>
+</span></span><span style="display:flex;"><span>replicas <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_config<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;replicas&#34;</span>, DEFAULT_REPLICAS)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">with</span> self<span style="color:#f92672">.</span>_lock:
+</span></span><span style="display:flex;"><span>    total <span style="color:#f92672">=</span> len(self<span style="color:#f92672">.</span>_sandboxes) <span style="color:#f92672">+</span> len(self<span style="color:#f92672">.</span>_warm_pool)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> total <span style="color:#f92672">&gt;=</span> replicas:
+</span></span><span style="display:flex;"><span>    evicted <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_evict_oldest_warm()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> evicted:
+</span></span><span style="display:flex;"><span>        logger<span style="color:#f92672">.</span>info(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Evicted warm-pool sandbox </span><span style="color:#e6db74">{</span>evicted<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 所有槽位都是活跃的——不强制停止，允许超出软限制</span>
+</span></span><span style="display:flex;"><span>        logger<span style="color:#f92672">.</span>warning(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;All </span><span style="color:#e6db74">{</span>replicas<span style="color:#e6db74">}</span><span style="color:#e6db74"> replica slots are in active use; &#34;</span>
+</span></span><span style="display:flex;"><span>                       <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;creating sandbox </span><span style="color:#e6db74">{</span>sandbox_id<span style="color:#e6db74">}</span><span style="color:#e6db74"> beyond the soft limit&#34;</span>)
+</span></span></code></pre></div><p><code>replicas</code> 是软限制——如果所有容器都在活跃使用，不会为了创建新容器而强制停止正在服务的容器。这是可用性优先于资源限制的设计选择。</p>
+<h3 id="空闲超时">空闲超时<a hidden class="anchor" aria-hidden="true" href="#空闲超时">#</a></h3>
+<p>后台守护线程每 60 秒扫描一次活跃沙箱和 Warm Pool，超过空闲阈值（默认 600 秒）的容器会被销毁：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># aio_sandbox_provider.py:262-268</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_idle_checker_loop</span>(self):
+</span></span><span style="display:flex;"><span>    idle_timeout <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_config<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;idle_timeout&#34;</span>, DEFAULT_IDLE_TIMEOUT)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#f92672">not</span> self<span style="color:#f92672">.</span>_idle_checker_stop<span style="color:#f92672">.</span>wait(timeout<span style="color:#f92672">=</span>IDLE_CHECK_INTERVAL):
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_cleanup_idle_sandboxes(idle_timeout)
+</span></span></code></pre></div><p>清理前会再次检查活跃时间戳（double-check），避免竞态条件：在快照和清理之间，沙箱可能已被重新获取。</p>
+<h3 id="挂载配置">挂载配置<a hidden class="anchor" aria-hidden="true" href="#挂载配置">#</a></h3>
+<p>每个容器的文件挂载分为两类：</p>
+<p><strong>线程级挂载</strong>（读写）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># aio_sandbox_provider.py:221-228</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> [
+</span></span><span style="display:flex;"><span>    (str(host_paths<span style="color:#f92672">.</span>sandbox_work_dir(thread_id)),    <span style="color:#e6db74">&#34;/mnt/user-data/workspace&#34;</span>, <span style="color:#66d9ef">False</span>),
+</span></span><span style="display:flex;"><span>    (str(host_paths<span style="color:#f92672">.</span>sandbox_uploads_dir(thread_id)), <span style="color:#e6db74">&#34;/mnt/user-data/uploads&#34;</span>,   <span style="color:#66d9ef">False</span>),
+</span></span><span style="display:flex;"><span>    (str(host_paths<span style="color:#f92672">.</span>sandbox_outputs_dir(thread_id)), <span style="color:#e6db74">&#34;/mnt/user-data/outputs&#34;</span>,   <span style="color:#66d9ef">False</span>),
+</span></span><span style="display:flex;"><span>    (str(host_paths<span style="color:#f92672">.</span>acp_workspace_dir(thread_id)),   <span style="color:#e6db74">&#34;/mnt/acp-workspace&#34;</span>,       <span style="color:#66d9ef">True</span>),
+</span></span><span style="display:flex;"><span>]
+</span></span></code></pre></div><p><strong>Skills 挂载</strong>（只读）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># aio_sandbox_provider.py:242-245</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> skills_path<span style="color:#f92672">.</span>exists():
+</span></span><span style="display:flex;"><span>    host_skills <span style="color:#f92672">=</span> os<span style="color:#f92672">.</span>environ<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;DEER_FLOW_HOST_SKILLS_PATH&#34;</span>) <span style="color:#f92672">or</span> str(skills_path)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> (host_skills, container_path, <span style="color:#66d9ef">True</span>)  <span style="color:#75715e"># Read-only for security</span>
+</span></span></code></pre></div><p>注意 <code>DEER_FLOW_HOST_SKILLS_PATH</code> 环境变量——当 DeerFlow 本身运行在 Docker 中（Docker-outside-of-Docker 模式），宿主 Docker daemon 解析挂载路径时使用的是宿主路径，不是容器内路径。这个环境变量让用户指定宿主侧的 Skills 目录位置。</p>
+<h2 id="虚拟路径系统">虚拟路径系统<a hidden class="anchor" aria-hidden="true" href="#虚拟路径系统">#</a></h2>
+<p>这是整个沙箱架构中最精妙的部分。Agent 感知到的文件系统是一个虚拟的、统一的路径空间：</p>
+<pre tabindex="0"><code>/mnt/user-data/
+├── workspace/   ← Agent 的工作目录
+├── uploads/     ← 用户上传的文件
+└── outputs/     ← Agent 输出的文件
+
+/mnt/skills/
+├── public/      ← 内置 Skills（只读）
+└── custom/      ← 自定义 Skills（只读）
+
+/mnt/acp-workspace/   ← ACP Agent 的输出（只读）
+</code></pre><p>无论底层是本地文件系统还是 Docker 容器，Agent 看到的路径完全一样。这层抽象由 <code>tools.py</code> 中的路径翻译系统实现。</p>
+<h3 id="路径翻译">路径翻译<a hidden class="anchor" aria-hidden="true" href="#路径翻译">#</a></h3>
+<p>Docker 模式下，虚拟路径直接对应容器内路径（因为挂载点就是 <code>/mnt/user-data/*</code>），不需要额外翻译。本地模式下，虚拟路径需要翻译成宿主文件系统上的实际路径：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:241-271</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">replace_virtual_path</span>(path: str, thread_data: ThreadDataState <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span>) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    mappings <span style="color:#f92672">=</span> _thread_virtual_to_actual_mappings(thread_data)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 最长前缀优先匹配</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> virtual_base, actual_base <span style="color:#f92672">in</span> sorted(mappings<span style="color:#f92672">.</span>items(), 
+</span></span><span style="display:flex;"><span>                                             key<span style="color:#f92672">=</span><span style="color:#66d9ef">lambda</span> item: len(item[<span style="color:#ae81ff">0</span>]), reverse<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> path <span style="color:#f92672">==</span> virtual_base:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> actual_base
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> path<span style="color:#f92672">.</span>startswith(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>virtual_base<span style="color:#e6db74">}</span><span style="color:#e6db74">/&#34;</span>):
+</span></span><span style="display:flex;"><span>            rest <span style="color:#f92672">=</span> path[len(virtual_base):]<span style="color:#f92672">.</span>lstrip(<span style="color:#e6db74">&#34;/&#34;</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> _join_path_preserving_style(actual_base, rest)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> path
+</span></span></code></pre></div><p>映射关系：</p>
+<pre tabindex="0"><code>/mnt/user-data/workspace → ~/.deer-flow/threads/{thread_id}/user-data/workspace
+/mnt/user-data/uploads   → ~/.deer-flow/threads/{thread_id}/user-data/uploads
+/mnt/user-data/outputs   → ~/.deer-flow/threads/{thread_id}/user-data/outputs
+/mnt/user-data           → ~/.deer-flow/threads/{thread_id}/user-data
+</code></pre><p>最长前缀优先的排序保证 <code>/mnt/user-data/workspace/foo.py</code> 不会被 <code>/mnt/user-data</code> 的映射错误匹配。</p>
+<h3 id="反向掩码">反向掩码<a hidden class="anchor" aria-hidden="true" href="#反向掩码">#</a></h3>
+<p>命令的输出可能包含真实的宿主路径。如果这些路径被返回给 Agent 或用户，会泄露服务器的文件系统布局。<code>mask_local_paths_in_output()</code> 负责把所有真实路径替换回虚拟路径：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:304-373</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">mask_local_paths_in_output</span>(output: str, thread_data: ThreadDataState <span style="color:#f92672">|</span> <span style="color:#66d9ef">None</span>) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    result <span style="color:#f92672">=</span> output
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 1. 掩码 Skills 宿主路径 → /mnt/skills/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 2. 掩码 ACP 宿主路径 → /mnt/acp-workspace/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 3. 掩码 user-data 宿主路径 → /mnt/user-data/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">...</span>
+</span></span></code></pre></div><p>掩码处理了多种路径变体（原始路径、resolved 路径、正斜杠/反斜杠变体），通过正则表达式批量替换。这也意味着即使 Agent 在 bash 命令中无意间暴露了真实路径，用户也看不到。</p>
+<h2 id="四层路径安全">四层路径安全<a hidden class="anchor" aria-hidden="true" href="#四层路径安全">#</a></h2>
+<p>DeerFlow 对文件访问的安全校验分成四层，逐层加固。</p>
+<h3 id="第一层路径遍历拒绝">第一层：路径遍历拒绝<a hidden class="anchor" aria-hidden="true" href="#第一层路径遍历拒绝">#</a></h3>
+<p>最基础的防御——禁止 <code>..</code> 段：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:376-382</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_reject_path_traversal</span>(path: str) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    normalised <span style="color:#f92672">=</span> path<span style="color:#f92672">.</span>replace(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">&#34;</span>, <span style="color:#e6db74">&#34;/&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> segment <span style="color:#f92672">in</span> normalised<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;/&#34;</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> segment <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;..&#34;</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">PermissionError</span>(<span style="color:#e6db74">&#34;Access denied: path traversal detected&#34;</span>)
+</span></span></code></pre></div><p>这是第一道门，在任何路径处理之前执行。</p>
+<h3 id="第二层虚拟路径白名单">第二层：虚拟路径白名单<a hidden class="anchor" aria-hidden="true" href="#第二层虚拟路径白名单">#</a></h3>
+<p><code>validate_local_tool_path()</code> 检查路径是否属于允许的虚拟路径家族：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:385-428</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">validate_local_tool_path</span>(path, thread_data, <span style="color:#f92672">*</span>, read_only<span style="color:#f92672">=</span><span style="color:#66d9ef">False</span>):
+</span></span><span style="display:flex;"><span>    _reject_path_traversal(path)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> _is_skills_path(path):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> read_only:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">PermissionError</span>(<span style="color:#e6db74">&#34;Write access to skills path is not allowed&#34;</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> _is_acp_workspace_path(path):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> read_only:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">PermissionError</span>(<span style="color:#e6db74">&#34;Write access to ACP workspace is not allowed&#34;</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> path<span style="color:#f92672">.</span>startswith(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>VIRTUAL_PATH_PREFIX<span style="color:#e6db74">}</span><span style="color:#e6db74">/&#34;</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">PermissionError</span>(<span style="color:#e6db74">&#34;Only paths under /mnt/user-data/, /mnt/skills/, &#34;</span>
+</span></span><span style="display:flex;"><span>                          <span style="color:#e6db74">&#34;or /mnt/acp-workspace/ are allowed&#34;</span>)
+</span></span></code></pre></div><p>三个规则：</p>
+<ul>
+<li><code>/mnt/user-data/*</code>：读写都允许</li>
+<li><code>/mnt/skills/*</code>：只允许读</li>
+<li><code>/mnt/acp-workspace/*</code>：只允许读</li>
+<li>其他路径：一律拒绝</li>
+</ul>
+<h3 id="第三层解析后路径验证">第三层：解析后路径验证<a hidden class="anchor" aria-hidden="true" href="#第三层解析后路径验证">#</a></h3>
+<p>虚拟路径翻译成实际路径后，再验证结果没有逃逸到允许的根目录之外：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:431-456</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_validate_resolved_user_data_path</span>(resolved: Path, thread_data):
+</span></span><span style="display:flex;"><span>    allowed_roots <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>        Path(p)<span style="color:#f92672">.</span>resolve()
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> p <span style="color:#f92672">in</span> (
+</span></span><span style="display:flex;"><span>            thread_data<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;workspace_path&#34;</span>),
+</span></span><span style="display:flex;"><span>            thread_data<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;uploads_path&#34;</span>),
+</span></span><span style="display:flex;"><span>            thread_data<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;outputs_path&#34;</span>),
+</span></span><span style="display:flex;"><span>        ) <span style="color:#66d9ef">if</span> p <span style="color:#f92672">is</span> <span style="color:#f92672">not</span> <span style="color:#66d9ef">None</span>
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> root <span style="color:#f92672">in</span> allowed_roots:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>            resolved<span style="color:#f92672">.</span>relative_to(root)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">ValueError</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">continue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">PermissionError</span>(<span style="color:#e6db74">&#34;Access denied: path traversal detected&#34;</span>)
+</span></span></code></pre></div><p>使用 <code>Path.resolve()</code> + <code>relative_to()</code> 做最终的 containment 检查。即使前面的路径遍历检测被绕过（比如通过符号链接），这层检查仍然能捕获逃逸。</p>
+<h3 id="第四层bash-命令路径扫描">第四层：Bash 命令路径扫描<a hidden class="anchor" aria-hidden="true" href="#第四层bash-命令路径扫描">#</a></h3>
+<p>Bash 命令的路径验证比单文件操作更复杂，因为命令字符串中可能包含多个路径：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:470-507</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">validate_local_bash_command_paths</span>(command, thread_data):
+</span></span><span style="display:flex;"><span>    unsafe_paths <span style="color:#f92672">=</span> []
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> absolute_path <span style="color:#f92672">in</span> _ABSOLUTE_PATH_PATTERN<span style="color:#f92672">.</span>findall(command):
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># /mnt/user-data/* → 允许（检查遍历后）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># /mnt/skills/* → 允许（检查遍历后）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># /mnt/acp-workspace/* → 允许（检查遍历后）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># /bin/*, /usr/bin/* 等系统路径 → 允许</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 其他绝对路径 → 拒绝</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">...</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> unsafe_paths:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">PermissionError</span>(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Unsafe absolute paths in command: </span><span style="color:#e6db74">{</span>unsafe_paths<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>系统路径白名单包括 <code>/bin/</code>、<code>/usr/bin/</code>、<code>/usr/sbin/</code>、<code>/sbin/</code>、<code>/opt/homebrew/bin/</code>、<code>/dev/</code>。这些是常见的可执行文件��设备路径，Agent 需要引用它们来执行基本命令。</p>
+<p>正则表达式 <code>_ABSOLUTE_PATH_PATTERN = re.compile(r&quot;(?&lt;![:\w])/(?:[^\s\&quot;'</code> + &ldquo;<code>&quot; + </code>;&amp;|&lt;&gt;()]+)&rdquo;)<code> 用负向后行断言排除 URL 中的路径（</code>http://<code>中的</code>//`）。</p>
+<h2 id="工具函数中的安全流程">工具函数中的安全流程<a hidden class="anchor" aria-hidden="true" href="#工具函数中的安全流程">#</a></h2>
+<p>以 <code>bash_tool</code> 为例，看完整的安全流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:701-729</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@tool</span>(<span style="color:#e6db74">&#34;bash&#34;</span>, parse_docstring<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">bash_tool</span>(runtime, description, command):
+</span></span><span style="display:flex;"><span>    sandbox <span style="color:#f92672">=</span> ensure_sandbox_initialized(runtime)     <span style="color:#75715e"># 1. 获取沙箱</span>
+</span></span><span style="display:flex;"><span>    ensure_thread_directories_exist(runtime)           <span style="color:#75715e"># 2. 确保目录存在</span>
+</span></span><span style="display:flex;"><span>    thread_data <span style="color:#f92672">=</span> get_thread_data(runtime)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> is_local_sandbox(runtime):
+</span></span><span style="display:flex;"><span>        validate_local_bash_command_paths(command, thread_data)  <span style="color:#75715e"># 3. 扫描路径</span>
+</span></span><span style="display:flex;"><span>        command <span style="color:#f92672">=</span> replace_virtual_paths_in_command(command, thread_data)  <span style="color:#75715e"># 4. 翻译路径</span>
+</span></span><span style="display:flex;"><span>        output <span style="color:#f92672">=</span> sandbox<span style="color:#f92672">.</span>execute_command(command)       <span style="color:#75715e"># 5. 执行</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> mask_local_paths_in_output(output, thread_data)  <span style="color:#75715e"># 6. 掩码输出</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> sandbox<span style="color:#f92672">.</span>execute_command(command)             <span style="color:#75715e"># Docker 模式直接执行</span>
+</span></span></code></pre></div><p>Docker 模式下步骤 3、4、6 都不需要——容器本身就是隔离边界，路径已经通过挂载映射好了。</p>
+<p><code>read_file_tool</code> 的流程类似但更细致，因为它需要处理 Skills 和 ACP 路径的特殊解析：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># tools.py:787-795 (简化)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> is_local_sandbox(runtime):
+</span></span><span style="display:flex;"><span>    validate_local_tool_path(path, thread_data, read_only<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> _is_skills_path(path):
+</span></span><span style="display:flex;"><span>        path <span style="color:#f92672">=</span> _resolve_skills_path(path)      <span style="color:#75715e"># Skills 路径单独解析</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">elif</span> _is_acp_workspace_path(path):
+</span></span><span style="display:flex;"><span>        path <span style="color:#f92672">=</span> _resolve_acp_workspace_path(path, thread_id)  <span style="color:#75715e"># ACP 路径单独解析</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        path <span style="color:#f92672">=</span> _resolve_and_validate_user_data_path(path, thread_data)
+</span></span></code></pre></div><p><code>write_file_tool</code> 不传 <code>read_only=True</code>，所以写 Skills 或 ACP 路径会被第二层白名单拒绝。</p>
+<h2 id="沙箱的懒初始化">沙箱的懒初始化<a hidden class="anchor" aria-hidden="true" href="#沙箱的懒初始化">#</a></h2>
+<p>沙箱不是在 Agent 创建时就分配的，而是在第一次工具调用时懒初始化：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/tools.py:609-661</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">ensure_sandbox_initialized</span>(runtime):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 检查 state 中是否已有沙箱</span>
+</span></span><span style="display:flex;"><span>    sandbox_state <span style="color:#f92672">=</span> runtime<span style="color:#f92672">.</span>state<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;sandbox&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> sandbox_state <span style="color:#f92672">is</span> <span style="color:#f92672">not</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>        sandbox_id <span style="color:#f92672">=</span> sandbox_state<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;sandbox_id&#34;</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> sandbox_id <span style="color:#f92672">is</span> <span style="color:#f92672">not</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>            sandbox <span style="color:#f92672">=</span> get_sandbox_provider()<span style="color:#f92672">.</span>get(sandbox_id)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> sandbox <span style="color:#f92672">is</span> <span style="color:#f92672">not</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> sandbox
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 懒获取</span>
+</span></span><span style="display:flex;"><span>    thread_id <span style="color:#f92672">=</span> runtime<span style="color:#f92672">.</span>context<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;thread_id&#34;</span>)
+</span></span><span style="display:flex;"><span>    provider <span style="color:#f92672">=</span> get_sandbox_provider()
+</span></span><span style="display:flex;"><span>    sandbox_id <span style="color:#f92672">=</span> provider<span style="color:#f92672">.</span>acquire(thread_id)
+</span></span><span style="display:flex;"><span>    runtime<span style="color:#f92672">.</span>state[<span style="color:#e6db74">&#34;sandbox&#34;</span>] <span style="color:#f92672">=</span> {<span style="color:#e6db74">&#34;sandbox_id&#34;</span>: sandbox_id}
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    sandbox <span style="color:#f92672">=</span> provider<span style="color:#f92672">.</span>get(sandbox_id)
+</span></span><span style="display:flex;"><span>    runtime<span style="color:#f92672">.</span>context[<span style="color:#e6db74">&#34;sandbox_id&#34;</span>] <span style="color:#f92672">=</span> sandbox_id
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> sandbox
+</span></span></code></pre></div><p><code>SandboxMiddleware</code> 配合这个设计，默认 <code>lazy_init=True</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/sandbox/middleware.py:51-55</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">before_agent</span>(self, state, runtime):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> self<span style="color:#f92672">.</span>_lazy_init:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> super()<span style="color:#f92672">.</span>before_agent(state, runtime)  <span style="color:#75715e"># 跳过，什么都不做</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># eager 模式才在 before_agent 获取沙箱</span>
+</span></span></code></pre></div><p><code>after_agent</code> 负责释放：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># sandbox/middleware.py:67-83</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">after_agent</span>(self, state, runtime):
+</span></span><span style="display:flex;"><span>    sandbox <span style="color:#f92672">=</span> state<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;sandbox&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> sandbox <span style="color:#f92672">is</span> <span style="color:#f92672">not</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>        sandbox_id <span style="color:#f92672">=</span> sandbox[<span style="color:#e6db74">&#34;sandbox_id&#34;</span>]
+</span></span><span style="display:flex;"><span>        get_sandbox_provider()<span style="color:#f92672">.</span>release(sandbox_id)
+</span></span></code></pre></div><p>对于 <code>AioSandboxProvider</code>，<code>release()</code> 是把容器放入 Warm Pool，不是停止容器。对于 <code>LocalSandboxProvider</code>，<code>release()</code> 是空操作。</p>
+<h2 id="线程-id-安全">线程 ID 安全<a hidden class="anchor" aria-hidden="true" href="#线程-id-安全">#</a></h2>
+<p><code>Paths</code> 类对 <code>thread_id</code> 做了格式验证，防止路径注入：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># backend/packages/harness/deerflow/config/paths.py:106-108</span>
+</span></span><span style="display:flex;"><span>_SAFE_THREAD_ID_RE <span style="color:#f92672">=</span> re<span style="color:#f92672">.</span>compile(<span style="color:#e6db74">r</span><span style="color:#e6db74">&#34;^[A-Za-z0-9_\-]+$&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">thread_dir</span>(self, thread_id: str) <span style="color:#f92672">-&gt;</span> Path:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> _SAFE_THREAD_ID_RE<span style="color:#f92672">.</span><span style="color:#66d9ef">match</span>(thread_id):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">ValueError</span>(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Invalid thread_id </span><span style="color:#e6db74">{</span>thread_id<span style="color:#e6db74">!r}</span><span style="color:#e6db74">: only alphanumeric, &#34;</span>
+</span></span><span style="display:flex;"><span>                         <span style="color:#e6db74">&#34;hyphens, and underscores are allowed.&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>base_dir <span style="color:#f92672">/</span> <span style="color:#e6db74">&#34;threads&#34;</span> <span style="color:#f92672">/</span> thread_id
+</span></span></code></pre></div><p>如果 <code>thread_id</code> 包含 <code>../</code>、空格或其他特殊字符，会直接抛出 <code>ValueError</code>。这从源头阻止了通过伪造 <code>thread_id</code> 进行路径遍历的攻击。</p>
+<p>目录创建时使用 <code>0o777</code> 权限：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># paths.py:166-173</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">ensure_thread_dirs</span>(self, thread_id):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> d <span style="color:#f92672">in</span> [sandbox_work_dir, sandbox_uploads_dir, sandbox_outputs_dir, acp_workspace_dir]:
+</span></span><span style="display:flex;"><span>        d<span style="color:#f92672">.</span>mkdir(parents<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>, exist_ok<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>)
+</span></span><span style="display:flex;"><span>        d<span style="color:#f92672">.</span>chmod(<span style="color:#ae81ff">0o777</span>)
+</span></span></code></pre></div><p>注释解释了原因：Docker 容器内的进程可能以不同于宿主的 UID 运行，如果目录权限不够宽松，容器内的写操作会报 &ldquo;Permission denied&rdquo;。这是安全性和可用性之间的妥协——更精细的做法是用 UID 映射，但 <code>0o777</code> 在开发和小规模部署场景下更实用。</p>
+<h2 id="设计评估">设计评估<a hidden class="anchor" aria-hidden="true" href="#设计评估">#</a></h2>
+<p>DeerFlow 的沙箱系统在本地和 Docker 两种模式下做了明显不同的安全投入：</p>
+<p><strong>Docker 模式</strong>下安全性很强——容器隔离是内核级的，Agent 只能访问挂载进来的目录，无法触及宿主文件系统。Warm Pool 和确定性 ID 的设计在安全和性能之间做了好的平衡。</p>
+<p><strong>本地模式</strong>下安全性完全依赖路径验证。四层校验在正常使用场景下足够，但无法防御恶意构造的命令（比如通过环境变量间接引用宿主路径，或者通过 Python 代码直接访问文件系统）。本地模式的定位是&quot;开发便利&quot;，不是&quot;生产安全&quot;，这个取舍是合理的。</p>
+<p>虚拟路径系统是这个设计中最有价值的抽象——它让 Agent 的所有文件操作都基于统一的虚拟路径，无论底层实现如何变化，Agent 的行为不需要修改。同时反向掩码确保了即使在本地模式下，用户也不会在 Agent 输出中看到真实的文件系统路径。</p>
+<hr>
+<p>下一篇将分析 DeerFlow 的长期记忆系统和 IM 频道集成：Agent 如何在对话之间持久化用户偏好，以及飞书、Slack、Telegram 三个 IM 平台的接入架构。</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/ai/">AI</a></li>
+      <li><a href="http://localhost:1313/tags/%E6%8A%80%E6%9C%AF/">技术</a></li>
+      <li><a href="http://localhost:1313/tags/deerflow/">DeerFlow</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Linger-AI Space</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ 
+        startOnLoad: true,
+        theme: 'default' 
+    });
+</script>
+
+
+<div style="
+    text-align: center;
+    font-size: 12px;
+    color: var(--secondary);
+    margin-top: 10px;
+    opacity: 0.8;">
+
+    
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+    
+    <span id="busuanzi_container_site_pv">
+        总访问 <span id="busuanzi_value_site_pv" style="font-weight: bold;"></span> 次
+    </span>
+    &nbsp;·&nbsp;
+    <span id="busuanzi_container_site_uv">
+        访客 <span id="busuanzi_value_site_uv" style="font-weight: bold;"></span> 人
+    </span>
+</div>
+
+
+<script>
+(function() {
+    var el = document.getElementById('busuanzi_container_page_pv');
+    if (!el) return;
+    var check = setInterval(function() {
+        var val = document.getElementById('busuanzi_value_page_pv');
+        if (val && val.innerText !== '') {
+            el.style.display = 'inline';
+            clearInterval(check);
+        }
+    }, 200);
+    setTimeout(function() { clearInterval(check); }, 10000);
+})();
+</script>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>
